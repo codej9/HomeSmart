@@ -1,0 +1,6 @@
+# Copy this file to db.properties (same folder) and fill in your own MySQL details.
+# db.properties is not committed to Git, so each person keeps their own password.
+# If db.properties is missing or MySQL is not reachable, the app runs on in-memory sample data.
+db.url=jdbc:mysql://localhost:3306/homesmart
+db.user=homesmart
+db.password=homesmart
