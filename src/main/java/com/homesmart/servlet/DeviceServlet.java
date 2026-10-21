@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Controller for device controls.
@@ -30,6 +31,10 @@ public class DeviceServlet extends HttpServlet {
     private static final String FLASH_MESSAGE = "flashMessage";
     private static final String FLASH_ERROR = "flashError";
 
+    /** Shown instead of the raw JDBC error; the full error goes to the server log. */
+    static final String DATABASE_UNAVAILABLE =
+            "Could not reach the database. Check that MySQL is running, then try again.";
+
     private DeviceService deviceService;
 
     @Override
@@ -40,8 +45,15 @@ public class DeviceServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        request.setAttribute("devices", deviceService.getAllDevices());
         moveFlashToRequest(request);
+        try {
+            request.setAttribute("devices", deviceService.getAllDevices());
+        } catch (IllegalStateException e) {
+            // MySQL stopped after the app started: show the dashboard with a message instead of an error 500
+            log("Could not load devices", e);
+            request.setAttribute("devices", List.of());
+            request.setAttribute(FLASH_ERROR, DATABASE_UNAVAILABLE);
+        }
         request.getRequestDispatcher(VIEW).forward(request, response);
     }
 
@@ -53,9 +65,13 @@ public class DeviceServlet extends HttpServlet {
             CommandResult result = deviceService.execute(
                     deviceId, request.getParameter("action"), request.getParameter("value"));
             session.setAttribute(FLASH_MESSAGE, result.message());
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            // Invalid command, or the database could not save the change
+        } catch (IllegalArgumentException e) {
+            // Invalid command; the message explains what was wrong
             session.setAttribute(FLASH_ERROR, e.getMessage());
+        } catch (IllegalStateException e) {
+            // The database could not save the change
+            log("Could not run command", e);
+            session.setAttribute(FLASH_ERROR, DATABASE_UNAVAILABLE);
         }
         response.sendRedirect(request.getContextPath() + "/devices");
     }

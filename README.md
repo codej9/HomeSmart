@@ -7,7 +7,8 @@ Release 1 covers three devices: a light, a thermostat and a door lock.
 
 Release 1 includes a functional JSP dashboard with CSS styling and working controls for the light, thermostat, and door lock. Device statuses update after each action.
 
-The backend supports MySQL, with sample data used when the database is not configured or available. As of this release that database is not available.
+The dashboard is connected to the team's MySQL `devices` table (`src/homesmart.sql`): every light, thermostat and door lock
+change is saved there and is still there after the server restarts. When the database is not set up, the app runs on sample data instead.
 
 ## Database setup (MySQL)
 
@@ -30,16 +31,21 @@ Run these from the `HomeSmart` folder. Each `mysql` command asks for your MySQL 
 4. Start the app (see below). The console should print `[HomeSmart] Connected to MySQL at ...`.
 
 If `db.properties` is missing or MySQL is not running, the app still starts using in-memory sample data,
-logs a warning, and shows a notice on the page.
+logs a warning, and shows a notice on the page. If MySQL stops while the app is running, the dashboard shows
+"Could not reach the database" instead of an error page; start MySQL again and refresh.
 
 ## Run it
 
 ```bash
-mvn package          # compiles, runs unit tests, builds target/homesmart.war
+mvn package          # compiles, runs the tests, builds target/homesmart.war
 mvn jetty:run        # quick local run at http://localhost:8080/homesmart (no Tomcat needed)
 ```
 
 For Tomcat 10.1, deploy `target/homesmart.war` (or add it as an artifact in IntelliJ's Tomcat run configuration).
+
+`DeviceServiceTest` checks the device logic on sample data. `MySqlDeviceDAOTest` checks that each command is saved in
+and read back from the MySQL table; it runs only when `db.properties` exists and MySQL is reachable (otherwise it is
+skipped) and puts the original rows back afterwards.
 
 ## Structure
 
