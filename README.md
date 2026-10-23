@@ -45,7 +45,7 @@ For Tomcat 10.1, deploy `target/homesmart.war` (or add it as an artifact in Inte
 
 `DeviceServiceTest` checks the device logic on sample data. `MySqlDeviceDAOTest` checks that each command is saved in
 and read back from the MySQL table; it runs only when `db.properties` exists and MySQL is reachable (otherwise it is
-skipped) and puts the original rows back afterwards.
+skipped) and puts the original rows back afterwards. `ActivityLogTest` checks the log order and size limit.
 
 ## Structure
 
@@ -53,9 +53,9 @@ skipped) and puts the original rows back afterwards.
 |---|---|
 | `model` | `Device` base class and `Light`, `Thermostat`, `DoorLock` |
 | `dao` | `DeviceDAO` storage interface; `MySqlDeviceDAO` (MySQL `devices` table) and `InMemoryDeviceDAO` (sample data fallback) |
-| `service` | `DeviceService` – all device control logic and validation; `CommandResult` |
-| `servlet` | `DeviceServlet` at `/devices` |
-| `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService` |
+| `service` | `DeviceService` – all device control logic and validation; `CommandResult`; `ActivityLog` (in-memory command history) |
+| `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity` |
+| `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService` and `ActivityLog` |
 
 ## Backend contract (for the dashboard, database and activity log)
 
@@ -64,6 +64,7 @@ skipped) and puts the original rows back afterwards.
 - `devices` – list of devices. Every device has `id`, `name`, `type` (`LIGHT`, `THERMOSTAT`, `DOOR_LOCK`) and `status` (e.g. "On", "21 °C", "Locked").
   Lights also have `on`; thermostats have `temperature`, `minTemperature`, `maxTemperature`; door locks have `locked`.
 - `flashMessage` / `flashError` – result of the last command (shown once).
+- `activity` – the 5 most recent commands as `CommandResult` items, newest first.
 
 **POST `/devices`** with form fields:
 
@@ -78,5 +79,8 @@ plus `deviceId`. The servlet redirects back to `GET /devices` afterwards.
 **Database:** `MySqlDeviceDAO` reads and updates the `devices` table from `homesmart.sql`
 (`power_on` for lights, `temperature` for thermostats, `locked` for door locks).
 
-**Activity log:** every command returns a `CommandResult(deviceName, action, timestamp)`, which matches the log columns.
+**Activity log:** every successful command is recorded as a `CommandResult(deviceName, action, timestamp)`.
+The log is kept in memory, holds the last 200 commands, and clears when the server restarts.
+
+**GET `/activity`** forwards to `WEB-INF/views/activity.jsp` with `activity`, the full log, newest first.
 

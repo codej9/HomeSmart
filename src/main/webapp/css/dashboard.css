@@ -73,7 +73,8 @@ body {
 
 .topbar-label,
 .eyebrow,
-.category {
+.category,
+.activity-table th {
     font-size: 11px;
     letter-spacing: 2px;
     font-weight: 750;
@@ -109,11 +110,17 @@ body {
     margin: 0 0 20px;
 }
 
-.section-heading h2 {
+.section-heading h2,
+.page-heading h1 {
     font-family: Georgia, "Times New Roman", serif;
     font-weight: 400;
     font-size: 30px;
     margin: 7px 0 0;
+}
+
+.page-heading,
+.device-grid + .section-heading {
+    margin-top: 44px;
 }
 
 .section-note {
@@ -310,6 +317,50 @@ body {
 
 .footer span {
     text-align: right;
+}
+
+.text-link {
+    color: #f2f4f6;
+    font-size: 14px;
+    font-weight: 600;
+    text-underline-offset: 4px;
+}
+
+.activity-panel {
+    border-radius: 20px;
+    padding: 26px;
+}
+
+.activity-device {
+    font-weight: 600;
+}
+
+.activity-table time {
+    color: #c5ced6;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.activity-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.activity-table th {
+    text-align: left;
+    padding: 0 12px 14px 0;
+}
+
+.activity-table td {
+    border-top: 1px solid rgba(225, 235, 245, .12);
+    padding: 14px 12px 14px 0;
+}
+
+.empty-state {
+    margin: 0;
+    color: #d1d8de;
+    font-size: 14px;
 }
 
 button:focus-visible,

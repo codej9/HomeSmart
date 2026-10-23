@@ -1,7 +1,7 @@
 <%--
   Basic backend test page for the device controls.
   The styled dashboard (frontend) can replace this file: the servlet provides
-  ${devices}, ${flashMessage}, ${flashError} and ${applicationScope.usingSampleData},
+  ${devices}, ${activity}, ${flashMessage}, ${flashError} and ${applicationScope.usingSampleData},
   and each form posts
   deviceId + action (+ value for "set") to /devices.
 --%>
@@ -79,6 +79,10 @@
                     </div>
                 </article>
             </c:forEach>
+        </div>
+        <div class="section-heading"><div><p class="eyebrow">HISTORY</p><h2>Recent activity</h2></div><a class="text-link" href="${pageContext.request.contextPath}/activity">View full log <span aria-hidden="true">→</span></a></div>
+        <div class="activity-panel glass">
+            <%@ include file="activity-table.jspf" %>
         </div>
     </main>
     <footer class="footer">HomeSmart · TechNest Solutions </footer>
