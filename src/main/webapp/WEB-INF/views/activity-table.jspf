@@ -1,0 +1,22 @@
+<%-- Activity table for ${activity}: CommandResult items, newest first. --%>
+<c:choose>
+    <c:when test="${empty activity}">
+        <p class="empty-state">No activity yet. Device commands will appear here.</p>
+    </c:when>
+    <c:otherwise>
+        <table class="activity-table">
+            <thead>
+            <tr><th scope="col">DEVICE</th><th scope="col">ACTION</th><th scope="col">DATE AND TIME</th></tr>
+            </thead>
+            <tbody>
+            <c:forEach var="entry" items="${activity}">
+                <tr>
+                    <td class="activity-device"><c:out value="${entry.deviceName()}"/></td>
+                    <td><c:out value="${entry.action()}"/></td>
+                    <td><time datetime="${entry.timestamp().withNano(0)}"><c:out value="${entry.timestamp().format(timeFormat)}"/></time></td>
+                </tr>
+            </c:forEach>
+            </tbody>
+        </table>
+    </c:otherwise>
+</c:choose>

@@ -3,6 +3,7 @@ package com.homesmart.listener;
 import com.homesmart.dao.DeviceDAO;
 import com.homesmart.dao.InMemoryDeviceDAO;
 import com.homesmart.dao.MySqlDeviceDAO;
+import com.homesmart.service.ActivityLog;
 import com.homesmart.service.DeviceService;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
@@ -11,16 +12,22 @@ import jakarta.servlet.annotation.WebListener;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Properties;
 
 /**
- * Creates one shared DeviceService when the application starts,
- * so every servlet and JSP works with the same device state.
+ * Creates one shared DeviceService and ActivityLog when the application starts,
+ * so every servlet and JSP works with the same state.
  */
 @WebListener
 public class AppContextListener implements ServletContextListener {
 
     public static final String DEVICE_SERVICE = "deviceService";
+    public static final String ACTIVITY_LOG = "activityLog";
+
+    /** Formats activity timestamps in the JSPs, e.g. "Oct 23, 2026 at 10:37 AM". */
+    public static final String TIME_FORMAT = "timeFormat";
 
     /** Set to true when the app could not reach MySQL and is running on sample data. */
     public static final String USING_SAMPLE_DATA = "usingSampleData";
@@ -31,6 +38,8 @@ public class AppContextListener implements ServletContextListener {
     public void contextInitialized(ServletContextEvent event) {
         ServletContext context = event.getServletContext();
         context.setAttribute(DEVICE_SERVICE, new DeviceService(createDeviceDAO(context)));
+        context.setAttribute(ACTIVITY_LOG, new ActivityLog());
+        context.setAttribute(TIME_FORMAT, DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a", Locale.ENGLISH));
     }
 
     /**

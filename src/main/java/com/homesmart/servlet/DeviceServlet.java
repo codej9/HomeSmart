@@ -1,6 +1,7 @@
 package com.homesmart.servlet;
 
 import com.homesmart.listener.AppContextListener;
+import com.homesmart.service.ActivityLog;
 import com.homesmart.service.CommandResult;
 import com.homesmart.service.DeviceService;
 import jakarta.servlet.ServletException;
@@ -35,11 +36,15 @@ public class DeviceServlet extends HttpServlet {
     static final String DATABASE_UNAVAILABLE =
             "Could not reach the database. Check that MySQL is running, then try again.";
 
+    static final int RECENT_ACTIVITY_LIMIT = 5;
+
     private DeviceService deviceService;
+    private ActivityLog activityLog;
 
     @Override
     public void init() {
         deviceService = (DeviceService) getServletContext().getAttribute(AppContextListener.DEVICE_SERVICE);
+        activityLog = (ActivityLog) getServletContext().getAttribute(AppContextListener.ACTIVITY_LOG);
     }
 
     @Override
@@ -54,6 +59,7 @@ public class DeviceServlet extends HttpServlet {
             request.setAttribute("devices", List.of());
             request.setAttribute(FLASH_ERROR, DATABASE_UNAVAILABLE);
         }
+        request.setAttribute("activity", activityLog.recent(RECENT_ACTIVITY_LIMIT));
         request.getRequestDispatcher(VIEW).forward(request, response);
     }
 
@@ -64,6 +70,7 @@ public class DeviceServlet extends HttpServlet {
             int deviceId = parseDeviceId(request.getParameter("deviceId"));
             CommandResult result = deviceService.execute(
                     deviceId, request.getParameter("action"), request.getParameter("value"));
+            activityLog.record(result);
             session.setAttribute(FLASH_MESSAGE, result.message());
         } catch (IllegalArgumentException e) {
             // Invalid command; the message explains what was wrong
