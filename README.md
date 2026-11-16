@@ -1,5 +1,7 @@
 # HomeSmart – Release 1
 
+[![CI](https://github.com/codej9/HomeSmart/actions/workflows/ci.yml/badge.svg)](https://github.com/codej9/HomeSmart/actions/workflows/ci.yml)
+
 Java/JSP web application (Jakarta Servlet 6, Tomcat 10.1, Java 17+).
 Release 1 covers three devices: a light, a thermostat and a door lock.
 
@@ -22,13 +24,20 @@ Run these from the `HomeSmart` folder. Each `mysql` command asks for your MySQL 
    ```bash
    mysql -u root -p homesmart < src/homesmart.sql
    ```
-3. Create your settings file. The example already uses the login from step 1, so a plain copy works:
+3. Create the test database for the MySQL tests, give the app login access to it and import the same file:
+   ```bash
+   mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS homesmart_test; GRANT ALL PRIVILEGES ON homesmart_test.* TO 'homesmart'@'localhost';"
+   mysql -u root -p homesmart_test < src/homesmart.sql
+   ```
+   The tests only use `homesmart_test`, so they never change the data in `homesmart`.
+   Run the import again in both databases whenever `src/homesmart.sql` changes.
+4. Create your settings file. The example already uses the login from step 1, so a plain copy works:
    ```bash
    cp src/main/resources/db.properties.example src/main/resources/db.properties
    ```
    (On Windows: `copy src\main\resources\db.properties.example src\main\resources\db.properties`.)
-   To use a different MySQL user, edit `db.user` and `db.password` in that file.
-4. Start the app (see below). The console should print `[HomeSmart] Connected to MySQL at ...`.
+   To use a different MySQL user, edit `db.user` and `db.password` in that file. `db.test.url` is the test database from step 3.
+5. Start the app (see below). The console should print `[HomeSmart] Connected to MySQL at ...`.
 
 If `db.properties` is missing or MySQL is not running, the app still starts using in-memory sample data,
 logs a warning, and shows a notice on the page. If MySQL stops while the app is running, the dashboard shows
@@ -44,12 +53,37 @@ mvn jetty:run        # quick local run at http://localhost:8080/homesmart (no To
 For Tomcat 10.1, deploy `target/homesmart.war` (or add it as an artifact in IntelliJ's Tomcat run configuration).
 
 `DeviceServiceTest` checks the device logic on sample data. `MySqlDeviceDAOTest` checks that each command is saved in
-and read back from the MySQL table; it runs only when `db.properties` exists and MySQL is reachable (otherwise it is
-skipped) and puts the original rows back afterwards. `ActivityLogTest` checks the log order and size limit.
+and read back from the MySQL test database; it runs only when `db.test.url` is set in `db.properties` and MySQL is
+reachable (otherwise it is skipped) and puts the original rows back afterwards. `ActivityLogTest` checks the log
+order and size limit.
 
 With the app running, `bash scripts/http-smoke-test.sh` sends 35 real requests to it (every command plus every kind of
 bad request) and checks the HTTP codes and the message the dashboard shows. It changes the device states. On Windows,
 run it from Git Bash.
+
+## Build and test
+
+Use the included Maven wrapper so everyone builds with the same Maven version.
+Windows uses `mvnw.cmd`; macOS and Linux use `./mvnw`:
+
+```bash
+mvnw.cmd verify         # Windows
+./mvnw verify           # macOS / Linux
+```
+
+The `verify` goal compiles, runs the tests, builds `target/homesmart.war` and writes the
+JaCoCo coverage report to `target/site/jacoco/index.html`. GitHub Actions runs it with
+`-Ddb.test.required=true` on JDK 17 and 21 against MySQL 8.0, so a skipped MySQL test fails the build.
+
+Mutation testing stays off the normal build. Stop MySQL before the mutation run:
+
+```bash
+./mvnw test-compile org.pitest:pitest-maven:mutationCoverage
+```
+
+PIT targets `com.homesmart.*` except the MySQL DAO, servlets and listener.
+The MySQL DAO writes to the database; servlets and listener have no unit-test path.
+PIT also excludes MySQL DAO tests so mutations cannot change database rows.
 
 ## Structure
 
