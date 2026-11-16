@@ -9,8 +9,12 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class InMemoryActivityLogDAOTest {
 
@@ -51,6 +55,38 @@ class InMemoryActivityLogDAOTest {
         assertEquals(20, entry.value());
         assertEquals(ActivitySource.SCHEDULE, entry.source());
         assertEquals("Night", entry.detail());
+    }
+
+    @Test
+    void latestOfTypesFiltersByDeviceAndType() {
+        record(3, ActivityType.UNLOCK, T0);
+        record(3, ActivityType.LOCK, T0.plusMinutes(1));
+        record(1, ActivityType.TURN_ON, T0.plusMinutes(2));
+
+        assertEquals(ActivityType.LOCK, log.latestOfTypes(3, Set.of(ActivityType.LOCK, ActivityType.UNLOCK))
+                .orElseThrow().type());
+        assertTrue(log.latestOfTypes(3, Set.of(ActivityType.TURN_ON)).isEmpty());
+    }
+
+    @Test
+    void doorAlertIsRecordedOncePerUnlock() {
+        long unlock = record(3, ActivityType.UNLOCK, T0);
+
+        assertTrue(log.recordDoorAlert(3, unlock, 10, T0.plusMinutes(10)));
+        assertFalse(log.recordDoorAlert(3, unlock, 10, T0.plusMinutes(11)));
+
+        ActivityEntry alert = log.all().get(0);
+        assertEquals(ActivityType.DOOR_LEFT_UNLOCKED, alert.type());
+        assertEquals(ActivitySource.SYSTEM, alert.source());
+        assertEquals(unlock, alert.refLogId());
+        assertEquals("Security alert: left unlocked for 10 min", alert.action());
+        assertEquals("Device 3", alert.deviceName());
+        assertEquals(2, log.all().size());
+    }
+
+    @Test
+    void doorAlertForUnknownUnlockFails() {
+        assertThrows(IllegalStateException.class, () -> log.recordDoorAlert(3, 99, 10, T0));
     }
 
     @Test

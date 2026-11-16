@@ -17,8 +17,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -130,6 +132,35 @@ class MySqlActivityLogDAOTest {
 
         assertEquals(List.of(ActivityType.TURN_OFF, ActivityType.TURN_ON),
                 added().stream().map(ActivityEntry::type).toList());
+    }
+
+    @Test
+    void typeQueriesFilterByDeviceTypeAndTime() {
+        record(DOOR, ActivityType.UNLOCK, null, T0);
+        record(DOOR, ActivityType.LOCK, null, T0.plusHours(1));
+        record(LIGHT, ActivityType.TURN_ON, null, T0.plusHours(2));
+
+        assertTrue(dao.latestOfTypes(DOOR, Set.of(ActivityType.TURN_ON)).isEmpty());
+    }
+
+    @Test
+    void doorAlertIsStoredOncePerUnlock() {
+        long unlock = record(DOOR, ActivityType.UNLOCK, null, T0);
+
+        assertTrue(dao.recordDoorAlert(DOOR, unlock, 10, T0.plusMinutes(10)));
+        assertFalse(dao.recordDoorAlert(DOOR, unlock, 10, T0.plusMinutes(11)));
+
+        ActivityEntry alert = added().get(0);
+        assertEquals(ActivityType.DOOR_LEFT_UNLOCKED, alert.type());
+        assertEquals(ActivitySource.SYSTEM, alert.source());
+        assertEquals(unlock, alert.refLogId());
+        assertEquals("Security alert: left unlocked for 10 min", alert.action());
+        assertEquals(2, added().size());
+    }
+
+    @Test
+    void doorAlertForMissingUnlockRowFails() {
+        assertThrows(IllegalStateException.class, () -> dao.recordDoorAlert(DOOR, 999_999_999L, 10, T0));
     }
 
     @Test

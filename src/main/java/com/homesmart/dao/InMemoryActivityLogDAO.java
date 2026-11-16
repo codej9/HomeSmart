@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -31,6 +33,18 @@ public class InMemoryActivityLogDAO implements ActivityLogDAO {
     }
 
     @Override
+    public synchronized boolean recordDoorAlert(int deviceId, long unlockLogId, int minutes, LocalDateTime at) {
+        ActivityEntry unlock = entries.stream().filter(e -> e.logId() == unlockLogId).findFirst()
+                .orElseThrow(() -> new IllegalStateException("No log entry with id " + unlockLogId));
+        if (entries.stream().anyMatch(e -> e.refLogId() != null && e.refLogId() == unlockLogId)) {
+            return false;
+        }
+        add(deviceId, unlock.deviceName(), "Security alert: left unlocked for " + minutes + " min",
+                ActivityType.DOOR_LEFT_UNLOCKED, null, ActivitySource.SYSTEM, null, unlockLogId, at);
+        return true;
+    }
+
+    @Override
     public synchronized List<ActivityEntry> recent(int limit) {
         return newestFirst(e -> true).stream().limit(limit).toList();
     }
@@ -38,6 +52,11 @@ public class InMemoryActivityLogDAO implements ActivityLogDAO {
     @Override
     public synchronized List<ActivityEntry> all() {
         return newestFirst(e -> true);
+    }
+
+    @Override
+    public synchronized Optional<ActivityEntry> latestOfTypes(int deviceId, Set<ActivityType> types) {
+        return newestFirst(e -> e.deviceId() == deviceId && types.contains(e.type())).stream().findFirst();
     }
 
     private ActivityEntry add(int deviceId, String deviceName, String action, ActivityType type, Integer value,

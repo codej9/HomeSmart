@@ -14,7 +14,10 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.homesmart.dao.MySqlConnector.databaseError;
 
@@ -23,6 +26,8 @@ import static com.homesmart.dao.MySqlConnector.databaseError;
  * The device name is read from {@code devices}, so a renamed device shows its new name in old entries.
  */
 public class MySqlActivityLogDAO implements ActivityLogDAO {
+
+    private static final int DUPLICATE_KEY = 1062;
 
     private static final String INSERT =
             "INSERT INTO activity_log (device_id, action, activity_type, `value`, source, detail, ref_log_id, logged_at) "
@@ -62,6 +67,21 @@ public class MySqlActivityLogDAO implements ActivityLogDAO {
     }
 
     @Override
+    public boolean recordDoorAlert(int deviceId, long unlockLogId, int minutes, LocalDateTime at) {
+        try {
+            insert(deviceId, "Security alert: left unlocked for " + minutes + " min",
+                    ActivityType.DOOR_LEFT_UNLOCKED, null, ActivitySource.SYSTEM, null, unlockLogId, at);
+            return true;
+        } catch (IllegalStateException e) {
+            // uq_activity_log_ref is the only unique key an insert can break
+            if (e.getCause() instanceof SQLException cause && cause.getErrorCode() == DUPLICATE_KEY) {
+                return false;
+            }
+            throw e;
+        }
+    }
+
+    @Override
     public List<ActivityEntry> recent(int limit) {
         return query(SELECT + NEWEST_FIRST + " LIMIT ?", limit);
     }
@@ -69,6 +89,12 @@ public class MySqlActivityLogDAO implements ActivityLogDAO {
     @Override
     public List<ActivityEntry> all() {
         return query(SELECT + NEWEST_FIRST);
+    }
+
+    @Override
+    public Optional<ActivityEntry> latestOfTypes(int deviceId, Set<ActivityType> types) {
+        return query(SELECT + "WHERE a.device_id = ? AND a.activity_type IN (" + marks(types) + ")"
+                + NEWEST_FIRST + " LIMIT 1", args(deviceId, types)).stream().findFirst();
     }
 
     private long insert(int deviceId, String action, ActivityType type, Integer value, ActivitySource source,
@@ -97,7 +123,7 @@ public class MySqlActivityLogDAO implements ActivityLogDAO {
         try (Connection connection = db.open();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             for (int i = 0; i < params.length; i++) {
-                statement.setObject(i + 1, params[i]);
+                statement.setObject(i + 1, params[i] instanceof ActivityType type ? type.name() : params[i]);
             }
             try (ResultSet rows = statement.executeQuery()) {
                 List<ActivityEntry> entries = new ArrayList<>();
@@ -118,5 +144,17 @@ public class MySqlActivityLogDAO implements ActivityLogDAO {
                 row.getString("action"), ActivityType.valueOf(row.getString("activity_type")), value,
                 ActivitySource.valueOf(row.getString("source")), row.getString("detail"), refLogId,
                 row.getObject("logged_at", LocalDateTime.class));
+    }
+
+    private static String marks(Set<ActivityType> types) {
+        return String.join(", ", Collections.nCopies(types.size(), "?"));
+    }
+
+    private static Object[] args(int deviceId, Set<ActivityType> types, Object... after) {
+        List<Object> all = new ArrayList<>();
+        all.add(deviceId);
+        all.addAll(types);
+        all.addAll(List.of(after));
+        return all.toArray();
     }
 }

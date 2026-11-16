@@ -1,0 +1,32 @@
+.hs-alerts > .hs-alert {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 15px;
+    padding: 14px 17px;
+    border: 1px solid var(--hs-border);
+    border-radius: 10px;
+    background: var(--hs-error-bg);
+    color: var(--hs-text);
+    font-size: 14px;
+}
+
+.hs-alert-text {
+    font-weight: 650;
+}
+
+.hs-alert form {
+    margin: 0;
+}
+
+.hs-alert-button {
+    border: 0;
+    border-radius: 9px;
+    padding: 10px 18px;
+    background: var(--hs-button-bg);
+    color: var(--hs-button-text);
+    font-weight: 700;
+    cursor: pointer;
+}
