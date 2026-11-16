@@ -94,7 +94,7 @@
                                         <td><c:out value="${schedule.daysText()}"/></td>
                                         <td>
                                             <c:choose>
-                                                <c:when test="${empty schedule.lastRunOn()}">Not yet</c:when>
+                                                <c:when test="${empty schedule.lastResult()}">Not run yet</c:when>
                                                 <c:otherwise><c:out value="${schedule.lastRunOn()}"/>: <c:out value="${schedule.lastResult()}"/></c:otherwise>
                                             </c:choose>
                                         </td>
