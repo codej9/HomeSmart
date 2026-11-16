@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [17, 21]
+    env:
+      DB_PORT: 33${{ matrix.java }}
+    services:
+      mysql:
+        image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: homesmart
+          MYSQL_USER: homesmart
+          MYSQL_PASSWORD: homesmart
+        # Keep equal to DB_PORT (the env context is not available here).
+        # One port per leg lets both legs run side by side under act.
+        ports:
+          - '33${{ matrix.java }}:3306'
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Install MySQL client if missing
+        run: |
+          if ! command -v mysql >/dev/null; then
+            SUDO=""; command -v sudo >/dev/null && SUDO="sudo"
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y -qq mysql-client \
+              || $SUDO apt-get install -y -qq mysql-client-8.0 \
+              || $SUDO apt-get install -y -qq mariadb-client
+          fi
+
+      - name: Wait for MySQL
+        run: |
+          for _ in $(seq 1 30); do
+            mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" \
+              -u homesmart -phomesmart -e 'SELECT 1' >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "::error::MySQL did not become ready on 127.0.0.1:$DB_PORT"
+          exit 1
+
+      - name: Create test database
+        run: |
+          mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" \
+            -u root -proot \
+            -e "CREATE DATABASE IF NOT EXISTS homesmart_test; GRANT ALL PRIVILEGES ON homesmart_test.* TO 'homesmart'@'%';"
+
+      - name: Import schema
+        run: |
+          for db in homesmart homesmart_test; do
+            mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" \
+              -u homesmart -phomesmart "$db" < src/homesmart.sql
+          done
+
+      - name: Create db.properties
+        run: |
+          sed "s|localhost:3306|127.0.0.1:$DB_PORT|" \
+            src/main/resources/db.properties.example > src/main/resources/db.properties
+
+      - name: Build, test and coverage
+        run: ./mvnw -B verify -Ddb.test.required=true
+
+      - name: Upload JaCoCo report
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: jacoco-report-jdk${{ matrix.java }}
+          path: target/site/jacoco/
+          if-no-files-found: error
