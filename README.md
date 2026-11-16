@@ -21,7 +21,7 @@ Run these from the `HomeSmart` folder. Each `mysql` command asks for your MySQL 
    ```bash
    mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS homesmart; CREATE USER IF NOT EXISTS 'homesmart'@'localhost' IDENTIFIED BY 'homesmart'; GRANT ALL PRIVILEGES ON homesmart.* TO 'homesmart'@'localhost';"
    ```
-2. Import the tables and starting data. This resets the devices and clears the activity log. Run it again whenever `src/homesmart.sql` changes:
+2. Import the tables and starting data. This resets the devices and clears the activity log and the schedules. Run it again whenever `src/homesmart.sql` changes:
    ```bash
    mysql -u root -p homesmart < src/homesmart.sql
    ```
@@ -44,6 +44,8 @@ If `db.properties` is missing or MySQL is not running, the app still starts usin
 logs a warning, and shows a notice on the page. If the `activity_log` table is missing, the app warns at start-up and keeps the log in memory; re-run step 2 and restart.
 If MySQL stops while the app is running, the dashboard shows
 "Could not reach the database" instead of an error page; start MySQL again and refresh. The activity log page shows the same message.
+In sample data mode the schedules are kept in memory and are lost on restart.
+If the `schedules` table is missing or old, the app logs a SEVERE message at start-up, runs no schedules, and asks you to re-import `src/homesmart.sql`.
 
 ## Run it
 
@@ -58,6 +60,7 @@ For Tomcat 10.1, deploy `target/homesmart.war` (or add it as an artifact in Inte
 and read back from the MySQL test database; it runs only when `db.test.url` is set in `db.properties` and MySQL is
 reachable (otherwise it is skipped) and puts the original rows back afterwards. `MySqlActivityLogDAOTest` and `InMemoryActivityLogDAOTest` check that log entries are saved and read back.
 `SecurityAlertsTest` and `DoorAlertJobTest` check the door alert rule with a fixed clock. `EnergyEstimatorTest` checks the energy estimate on made-up log rows.
+`ScheduleServiceTest` checks when a schedule runs and which runs come next, with a fixed clock.
 
 With the app running, `bash scripts/http-smoke-test.sh` sends 35 real requests to it (every command plus every kind of
 bad request) and checks the HTTP codes and the message the dashboard shows. It changes the device states. On Windows,
@@ -91,12 +94,12 @@ PIT also excludes MySQL DAO tests so mutations cannot change database rows.
 
 | Package | Purpose |
 |---|---|
-| `model` | `Device` base class and `Light`, `Thermostat`, `DoorLock`; `DeviceType` (kinds of device); `ActivityEntry`, `ActivityType`, `ActivitySource` and `Provenance` for the activity log |
-| `dao` | `DeviceDAO` storage interface; `MySqlDeviceDAO` (MySQL `devices` table) and `InMemoryDeviceDAO` (sample data fallback). `MySqlConnector` (shared JDBC connection). `ActivityLogDAO` storage interface; `MySqlActivityLogDAO` (MySQL `activity_log` table) and `InMemoryActivityLogDAO` (fallback) |
-| `service` | `DeviceService` – all device control logic and validation; `CommandResult` (one command's outcome); `SecurityAlerts` (door alert rule); `EnergyEstimator` (energy estimate from the log) |
-| `job` | `DoorAlertJob` – writes the door alert to the activity log |
-| `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity`; the panels `AlertsPanelServlet` at `/panels/alerts` and `EnergyPanelServlet` at `/panels/energy`, built on `PanelServlet` |
-| `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService` and `ActivityLogDAO`, and runs the background jobs |
+| `model` | `Device` base class and `Light`, `Thermostat`, `DoorLock`; `DeviceType` (kinds of device); `ActivityEntry`, `ActivityType`, `ActivitySource` and `Provenance` for the activity log; `Schedule` and `UpcomingRun` |
+| `dao` | `DeviceDAO` storage interface; `MySqlDeviceDAO` (MySQL `devices` table) and `InMemoryDeviceDAO` (sample data fallback). `MySqlConnector` (shared JDBC connection). `ActivityLogDAO` storage interface; `MySqlActivityLogDAO` (MySQL `activity_log` table) and `InMemoryActivityLogDAO` (fallback). `ScheduleDAO`; `MySqlScheduleDAO` (MySQL `schedules` table) and `InMemoryScheduleDAO` (sample data mode) |
+| `service` | `DeviceService` – all device control logic and validation; `CommandResult` (one command's outcome); `SecurityAlerts` (door alert rule); `EnergyEstimator` (energy estimate from the log); `ScheduleService` (create schedules, find the ones that are due) |
+| `job` | `DoorAlertJob` – writes the door alert to the activity log; `ScheduleJob` – runs the due schedules |
+| `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity`; `ScheduleServlet` at `/schedules`; the panels `AlertsPanelServlet` at `/panels/alerts`, `EnergyPanelServlet` at `/panels/energy` and `SchedulesPanelServlet` at `/panels/schedules`, built on `PanelServlet` |
+| `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService`, `ActivityLogDAO` and `ScheduleService`, and runs the background jobs |
 
 ## Backend contract (for the dashboard, database and activity log)
 
@@ -141,6 +144,13 @@ Set the time with the `homesmart.doorAlertMinutes` context-param in `web.xml` an
 **Energy estimate:** the panel at `/panels/energy` shows an estimate for today and the last 7 days, worked out from the activity log.
 A light counts 9 W while it is on, a thermostat shows its average setpoint, and the door lock is not estimated.
 The panel says the figures are estimates, not measurements.
+
+**Schedules:** `/schedules` lists the schedules and lets the user add, turn off, turn on and delete them; `POST /schedules` takes `op` and the schedule fields, then redirects back with `flashMessage` or `flashError`.
+The `schedules` table (columns in `src/homesmart.sql`) starts empty.
+`ScheduleJob` checks every 30 seconds and runs a schedule within 5 minutes after its time, so a restart does not run it hours late.
+Each schedule runs at most once a day, through `DeviceService`, so the usual checks apply and a schedule can never unlock the door.
+The activity log shows the command with the schedule name, for example "Turned on (schedule: Evening light)".
+Times use the server's time zone. The panel at `/panels/schedules` shows the next 3 runs.
 
 ## Release 2 – Frontend & Integration (Mahad)
 

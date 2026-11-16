@@ -184,7 +184,7 @@ public class DeviceService {
         return applyTemperature(thermostat, target, provenance);
     }
 
-    private static int parseTemperature(String value) {
+    static int parseTemperature(String value) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Enter a target temperature");
         }

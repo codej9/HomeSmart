@@ -70,6 +70,34 @@ CREATE TABLE `activity_log` (
   CONSTRAINT `chk_activity_log_source` CHECK (`source` in ('USER','SCHEDULE','SYSTEM'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `schedules`
+-- Commands that run at a set time on the chosen days. No starting rows.
+-- The CHECK on `value` is table-level because MySQL rejects a column-level CHECK that names another column.
+--
+
+DROP TABLE IF EXISTS `schedules`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `schedules` (
+  `schedule_id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL,
+  `device_id` int NOT NULL,
+  `activity_type` varchar(30) NOT NULL,
+  `value` int DEFAULT NULL,
+  `run_at` time NOT NULL,
+  `days` varchar(27) NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `last_run_on` date DEFAULT NULL,
+  `last_result` varchar(200) DEFAULT NULL,
+  PRIMARY KEY (`schedule_id`),
+  KEY `fk_schedules_device` (`device_id`),
+  CONSTRAINT `fk_schedules_device` FOREIGN KEY (`device_id`) REFERENCES `devices` (`device_id`),
+  CONSTRAINT `chk_schedules_type` CHECK (`activity_type` in ('TURN_ON','TURN_OFF','LOCK','SET_TEMPERATURE')),
+  CONSTRAINT `chk_schedules_value` CHECK ((((`activity_type` = 'SET_TEMPERATURE') and (`value` is not null) and (`value` between 10 and 32)) or ((`activity_type` <> 'SET_TEMPERATURE') and (`value` is null))))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

@@ -4,10 +4,15 @@ import com.homesmart.dao.ActivityLogDAO;
 import com.homesmart.dao.DeviceDAO;
 import com.homesmart.dao.InMemoryActivityLogDAO;
 import com.homesmart.dao.InMemoryDeviceDAO;
+import com.homesmart.dao.InMemoryScheduleDAO;
 import com.homesmart.dao.MySqlActivityLogDAO;
 import com.homesmart.dao.MySqlDeviceDAO;
+import com.homesmart.dao.MySqlScheduleDAO;
+import com.homesmart.dao.ScheduleDAO;
 import com.homesmart.job.DoorAlertJob;
+import com.homesmart.job.ScheduleJob;
 import com.homesmart.service.DeviceService;
+import com.homesmart.service.ScheduleService;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
@@ -18,6 +23,8 @@ import java.io.InputStream;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.concurrent.Executors;
@@ -33,6 +40,9 @@ public class AppContextListener implements ServletContextListener {
 
     public static final String DEVICE_SERVICE = "deviceService";
     public static final String ACTIVITY_LOG = "activityLog";
+
+    /** Missing when the {@code schedules} table is not available, so the schedule views show the re-import text. */
+    public static final String SCHEDULE_SERVICE = "scheduleService";
 
     /** Formats activity timestamps in the JSPs, e.g. "Oct 23, 2026 at 10:37 AM". */
     public static final String TIME_FORMAT = "timeFormat";
@@ -67,8 +77,15 @@ public class AppContextListener implements ServletContextListener {
 
         Duration doorAlertThreshold = Duration.ofMinutes(positiveSetting(context, DOOR_ALERT_MINUTES, DEFAULT_DOOR_ALERT_MINUTES));
         context.setAttribute(DOOR_ALERT_THRESHOLD, doorAlertThreshold);
-        startJobs(context, new DoorAlertJob((DeviceService) context.getAttribute(DEVICE_SERVICE), activityLog,
-                Clock.systemDefaultZone(), doorAlertThreshold));
+        DeviceService deviceService = (DeviceService) context.getAttribute(DEVICE_SERVICE);
+        List<Runnable> tasks = new ArrayList<>();
+        tasks.add(new DoorAlertJob(deviceService, activityLog, Clock.systemDefaultZone(), doorAlertThreshold));
+        ScheduleService scheduleService = createScheduleService(context, config, deviceService, deviceDAO instanceof MySqlDeviceDAO);
+        if (scheduleService != null) {
+            context.setAttribute(SCHEDULE_SERVICE, scheduleService);
+            tasks.add(new ScheduleJob(scheduleService));
+        }
+        startJobs(context, tasks);
     }
 
     @Override
@@ -87,7 +104,7 @@ public class AppContextListener implements ServletContextListener {
     }
 
     /** Runs every job on 1 daemon thread. A job catches its own errors, so 1 failure never stops later runs. */
-    private void startJobs(ServletContext context, Runnable... tasks) {
+    private void startJobs(ServletContext context, List<Runnable> tasks) {
         int delaySeconds = positiveSetting(context, JOB_DELAY_SECONDS, DEFAULT_JOB_DELAY_SECONDS);
         jobs = Executors.newSingleThreadScheduledExecutor(task -> {
             Thread thread = new Thread(task, "homesmart-jobs");
@@ -149,6 +166,28 @@ public class AppContextListener implements ServletContextListener {
             return new InMemoryActivityLogDAO();
         }
         return mySqlDAO;
+    }
+
+    /**
+     * Sample mode keeps schedules in memory. With MySQL, a missing or old {@code schedules} table gives null:
+     * there is no fallback, so the schedule views tell the user to re-import the schema and no schedule runs.
+     */
+    private static ScheduleService createScheduleService(ServletContext context, Properties config,
+                                                         DeviceService deviceService, boolean mySql) {
+        ScheduleDAO scheduleDAO = new InMemoryScheduleDAO();
+        if (mySql) {
+            MySqlScheduleDAO mySqlDAO = new MySqlScheduleDAO(
+                    config.getProperty("db.url"), config.getProperty("db.user"), config.getProperty("db.password", ""));
+            try {
+                mySqlDAO.checkTable();
+            } catch (IllegalStateException e) {
+                log(context, "SEVERE: schedules table not available (" + e.getMessage()
+                        + "). Import src/homesmart.sql to create it. Schedules will not run.");
+                return null;
+            }
+            scheduleDAO = mySqlDAO;
+        }
+        return new ScheduleService(scheduleDAO, deviceService, Clock.systemDefaultZone());
     }
 
     private static DeviceDAO useSampleData(ServletContext context, String reason) {

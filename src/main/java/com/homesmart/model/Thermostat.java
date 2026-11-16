@@ -27,10 +27,17 @@ public class Thermostat extends Device {
      * @throws IllegalArgumentException if the value is outside {@link #MIN_TEMPERATURE}..{@link #MAX_TEMPERATURE}
      */
     public void setTemperature(int temperature) {
+        requireInRange(temperature);
+        this.temperature = temperature;
+    }
+
+    /**
+     * @throws IllegalArgumentException if the value is outside {@link #MIN_TEMPERATURE}..{@link #MAX_TEMPERATURE}
+     */
+    public static void requireInRange(int temperature) {
         if (temperature < MIN_TEMPERATURE || temperature > MAX_TEMPERATURE) {
             throw new IllegalArgumentException(RANGE_MESSAGE);
         }
-        this.temperature = temperature;
     }
 
     /** True when the thermostat is at the Eco preset temperature. */

@@ -29,7 +29,7 @@ public class DeviceServlet extends HttpServlet {
     /** JSP that renders the device cards. */
     static final String VIEW = "/WEB-INF/views/devices.jsp";
 
-    private static final String FLASH_MESSAGE = "flashMessage";
+    static final String FLASH_MESSAGE = "flashMessage";
     static final String FLASH_ERROR = "flashError";
 
     /** Shown instead of the raw JDBC error; the full error goes to the server log. */
@@ -97,7 +97,7 @@ public class DeviceServlet extends HttpServlet {
     }
 
     /** Messages are kept in the session across the redirect, shown once, then removed. */
-    private static void moveFlashToRequest(HttpServletRequest request) {
+    static void moveFlashToRequest(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {
             return;

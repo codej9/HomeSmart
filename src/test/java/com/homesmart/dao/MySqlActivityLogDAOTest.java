@@ -96,7 +96,7 @@ class MySqlActivityLogDAOTest {
     void savesEntryAndReadsItBackWithDeviceName() {
         LocalDateTime when = LocalDateTime.of(2000, 1, 2, 3, 4, 5, 123_456_000);
         long id = dao.record(new CommandResult(THERMOSTAT, "ignored name", "Set temperature to 22 °C (schedule: Night)",
-                ActivityType.SET_TEMPERATURE, 22, when), new Provenance(ActivitySource.SCHEDULE, "Night"));
+                ActivityType.SET_TEMPERATURE, 22, when), Provenance.schedule("Night"));
 
         List<ActivityEntry> entries = added();
         assertEquals(1, entries.size());

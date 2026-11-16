@@ -354,7 +354,7 @@ class DeviceServiceTest {
 
         @Test
         void scheduleCommandIsLabelledWithTheScheduleName() {
-            CommandResult result = service.execute(LIGHT, "on", null, new Provenance(ActivitySource.SCHEDULE, "Evening light"));
+            CommandResult result = service.execute(LIGHT, "on", null, Provenance.schedule("Evening light"));
 
             ActivityEntry entry = log.all().get(0);
             assertEquals("Turned on (schedule: Evening light)", entry.action());

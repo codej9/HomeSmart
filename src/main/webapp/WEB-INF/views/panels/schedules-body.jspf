@@ -1,0 +1,29 @@
+<%-- Next runs: ${upcomingRuns} are UpcomingRun items. Without the scheduleService attribute the schema is old. --%>
+<h2 class="hs-schedules-title">Schedules</h2>
+<c:choose>
+    <c:when test="${not empty databaseError}">
+        <p class="hs-schedules-note"><c:out value="${databaseError}"/></p>
+    </c:when>
+    <c:when test="${empty applicationScope.scheduleService}">
+        <p class="hs-schedules-note">Schedules need the latest database schema. Re-import src/homesmart.sql.</p>
+    </c:when>
+    <c:otherwise>
+        <c:choose>
+            <c:when test="${empty upcomingRuns}">
+                <p class="hs-schedules-note">No schedules yet.</p>
+            </c:when>
+            <c:otherwise>
+                <ul class="hs-schedules-list">
+                    <c:forEach var="run" items="${upcomingRuns}">
+                        <li>
+                            <span class="hs-schedules-name"><c:out value="${run.schedule().name()}"/></span>
+                            <span><c:out value="${deviceNames[run.schedule().deviceId()]}"/>: <c:out value="${run.schedule().actionText()}"/></span>
+                            <time datetime="${run.at().withNano(0)}"><c:out value="${run.at().format(timeFormat)}"/></time>
+                        </li>
+                    </c:forEach>
+                </ul>
+            </c:otherwise>
+        </c:choose>
+        <a class="hs-schedules-link" href="${pageContext.request.contextPath}/schedules">Manage schedules <span aria-hidden="true">&rarr;</span></a>
+    </c:otherwise>
+</c:choose>

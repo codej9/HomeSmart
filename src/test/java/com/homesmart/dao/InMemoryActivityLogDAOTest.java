@@ -50,7 +50,7 @@ class InMemoryActivityLogDAOTest {
     @Test
     void recordKeepsValueSourceAndDetail() {
         log.record(new CommandResult(2, "Thermostat", "Set temperature to 20 °C (schedule: Night)",
-                ActivityType.SET_TEMPERATURE, 20, T0), new Provenance(ActivitySource.SCHEDULE, "Night"));
+                ActivityType.SET_TEMPERATURE, 20, T0), Provenance.schedule("Night"));
         ActivityEntry entry = log.all().get(0);
         assertEquals(20, entry.value());
         assertEquals(ActivitySource.SCHEDULE, entry.source());

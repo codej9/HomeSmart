@@ -1,0 +1,130 @@
+.hs-schedules-title {
+    margin: 0 0 18px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-size: 24px;
+    color: var(--hs-text);
+}
+
+.hs-schedules-note {
+    margin: 8px 0 0;
+    color: var(--hs-text-muted);
+    font-size: 13px;
+}
+
+.hs-schedules-list {
+    margin: 0 0 14px;
+    padding: 0;
+    list-style: none;
+    color: var(--hs-text);
+    font-size: 14px;
+}
+
+.hs-schedules-list li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding: 10px 0;
+    border-top: 1px solid var(--hs-border);
+}
+
+.hs-schedules-name {
+    font-weight: 650;
+}
+
+.hs-schedules-list time {
+    color: var(--hs-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.hs-schedules-link {
+    color: var(--hs-text);
+    font-size: 14px;
+    font-weight: 600;
+    text-underline-offset: 4px;
+}
+
+.hs-schedules-form {
+    display: grid;
+    grid-template-columns: minmax(120px, 220px) minmax(0, 360px);
+    gap: 12px 16px;
+    align-items: center;
+    color: var(--hs-text);
+    font-size: 14px;
+}
+
+.hs-schedules-form input[type="text"],
+.hs-schedules-form input[type="number"],
+.hs-schedules-form input[type="time"],
+.hs-schedules-form select {
+    padding: 10px 12px;
+    border: 1px solid var(--hs-border);
+    border-radius: 9px;
+    background: var(--hs-surface);
+    color: var(--hs-text);
+    font: inherit;
+}
+
+.hs-schedules-days {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--hs-border);
+    border-radius: 9px;
+}
+
+.hs-schedules-form .hs-schedules-button {
+    grid-column: 1 / -1;
+    justify-self: start;
+}
+
+.hs-schedules-button {
+    border: 0;
+    border-radius: 9px;
+    padding: 10px 18px;
+    background: var(--hs-button-bg);
+    color: var(--hs-button-text);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.hs-schedules-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--hs-text);
+    font-size: 14px;
+}
+
+.hs-schedules-table th,
+.hs-schedules-table td {
+    padding: 12px 12px 12px 0;
+    text-align: left;
+    vertical-align: top;
+    border-top: 1px solid var(--hs-border);
+}
+
+.hs-schedules-table thead th {
+    border-top: 0;
+    padding-top: 0;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--hs-text-muted);
+}
+
+.hs-schedules-controls form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+}
+
+.hs-schedules-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+}
