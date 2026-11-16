@@ -45,7 +45,7 @@ UNLOCK TABLES;
 
 --
 -- Table structure for table `activity_log`
--- One row per successful device command. The log starts empty.
+-- One row per device state change, plus door alerts. The log starts empty.
 --
 
 DROP TABLE IF EXISTS `activity_log`;
@@ -55,10 +55,19 @@ CREATE TABLE `activity_log` (
   `log_id` int NOT NULL AUTO_INCREMENT,
   `device_id` int NOT NULL,
   `action` varchar(100) NOT NULL,
+  `activity_type` varchar(30) NOT NULL,
+  `value` int DEFAULT NULL,
+  `source` varchar(10) NOT NULL DEFAULT 'USER',
+  `detail` varchar(100) DEFAULT NULL,
+  `ref_log_id` int DEFAULT NULL,
   `logged_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`log_id`),
+  UNIQUE KEY `uq_activity_log_ref` (`ref_log_id`),
   KEY `idx_activity_log_logged_at` (`logged_at`),
-  CONSTRAINT `fk_activity_log_device` FOREIGN KEY (`device_id`) REFERENCES `devices` (`device_id`)
+  KEY `idx_activity_log_device_time` (`device_id`,`logged_at`,`log_id`),
+  CONSTRAINT `fk_activity_log_device` FOREIGN KEY (`device_id`) REFERENCES `devices` (`device_id`),
+  CONSTRAINT `fk_activity_log_ref` FOREIGN KEY (`ref_log_id`) REFERENCES `activity_log` (`log_id`),
+  CONSTRAINT `chk_activity_log_source` CHECK (`source` in ('USER','SCHEDULE','SYSTEM'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

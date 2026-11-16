@@ -41,9 +41,10 @@ public class AppContextListener implements ServletContextListener {
         ServletContext context = event.getServletContext();
         Properties config = loadDbConfig();
         DeviceDAO deviceDAO = createDeviceDAO(context, config);
-        context.setAttribute(DEVICE_SERVICE, new DeviceService(deviceDAO));
-        context.setAttribute(ACTIVITY_LOG, deviceDAO instanceof MySqlDeviceDAO
-                ? createActivityLogDAO(context, config) : new InMemoryActivityLogDAO());
+        ActivityLogDAO activityLog = deviceDAO instanceof MySqlDeviceDAO
+                ? createActivityLogDAO(context, config) : new InMemoryActivityLogDAO();
+        context.setAttribute(DEVICE_SERVICE, new DeviceService(deviceDAO, activityLog));
+        context.setAttribute(ACTIVITY_LOG, activityLog);
         context.setAttribute(TIME_FORMAT, DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a", Locale.ENGLISH));
     }
 

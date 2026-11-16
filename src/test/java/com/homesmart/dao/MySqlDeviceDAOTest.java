@@ -43,7 +43,7 @@ class MySqlDeviceDAOTest {
     void connect() {
         database = TestDatabase.config();
         dao = newDao();
-        service = new DeviceService(dao);
+        service = new DeviceService(dao, new InMemoryActivityLogDAO());
         originalDevices = dao.findAll();
     }
 

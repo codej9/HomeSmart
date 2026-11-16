@@ -1,11 +1,17 @@
 package com.homesmart.dao;
 
+import com.homesmart.model.ActivityEntry;
+import com.homesmart.model.ActivitySource;
+import com.homesmart.model.ActivityType;
+import com.homesmart.model.Provenance;
 import com.homesmart.service.CommandResult;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,13 +25,16 @@ import static com.homesmart.dao.MySqlConnector.databaseError;
 public class MySqlActivityLogDAO implements ActivityLogDAO {
 
     private static final String INSERT =
-            "INSERT INTO activity_log (device_id, action, logged_at) VALUES (?, ?, ?)";
+            "INSERT INTO activity_log (device_id, action, activity_type, `value`, source, detail, ref_log_id, logged_at) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+    private static final String SELECT =
+            "SELECT a.log_id, a.device_id, d.device_name, a.action, a.activity_type, a.`value`, a.source, "
+                    + "a.detail, a.ref_log_id, a.logged_at "
+                    + "FROM activity_log a JOIN devices d ON d.device_id = a.device_id ";
 
     // log_id breaks ties between entries logged in the same instant
-    private static final String SELECT_NEWEST_FIRST =
-            "SELECT a.device_id, d.device_name, a.action, a.logged_at "
-                    + "FROM activity_log a JOIN devices d ON d.device_id = a.device_id "
-                    + "ORDER BY a.logged_at DESC, a.log_id DESC";
+    private static final String NEWEST_FIRST = " ORDER BY a.logged_at DESC, a.log_id DESC";
 
     private final MySqlConnector db;
 
@@ -33,56 +42,81 @@ public class MySqlActivityLogDAO implements ActivityLogDAO {
         this.db = new MySqlConnector(url, user, password);
     }
 
-    /** Fails with {@link IllegalStateException} when the table is missing or MySQL is unreachable. */
+    /** Fails with {@link IllegalStateException} when the table is missing a column or MySQL is unreachable. */
     public void checkTable() {
         try (Connection connection = db.open();
-             PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM activity_log LIMIT 1");
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT log_id, device_id, action, activity_type, `value`, source, detail, ref_log_id, logged_at "
+                             + "FROM activity_log LIMIT 1");
              ResultSet ignored = statement.executeQuery()) {
-            // table exists
+            // table is current
         } catch (SQLException e) {
             throw databaseError(e);
         }
     }
 
     @Override
-    public void record(CommandResult result) {
+    public long record(CommandResult result, Provenance provenance) {
+        return insert(result.deviceId(), result.action(), result.type(), result.value(),
+                provenance.source(), provenance.detail(), null, result.timestamp());
+    }
+
+    @Override
+    public List<ActivityEntry> recent(int limit) {
+        return query(SELECT + NEWEST_FIRST + " LIMIT ?", limit);
+    }
+
+    @Override
+    public List<ActivityEntry> all() {
+        return query(SELECT + NEWEST_FIRST);
+    }
+
+    private long insert(int deviceId, String action, ActivityType type, Integer value, ActivitySource source,
+                        String detail, Long refLogId, LocalDateTime at) {
         try (Connection connection = db.open();
-             PreparedStatement statement = connection.prepareStatement(INSERT)) {
-            statement.setInt(1, result.deviceId());
-            statement.setString(2, result.action());
-            statement.setObject(3, result.timestamp());
+             PreparedStatement statement = connection.prepareStatement(INSERT, Statement.RETURN_GENERATED_KEYS)) {
+            statement.setInt(1, deviceId);
+            statement.setString(2, action);
+            statement.setString(3, type.name());
+            statement.setObject(4, value, Types.INTEGER);
+            statement.setString(5, source.name());
+            statement.setString(6, detail);
+            statement.setObject(7, refLogId, Types.INTEGER);
+            statement.setObject(8, at);
             statement.executeUpdate();
+            try (ResultSet keys = statement.getGeneratedKeys()) {
+                keys.next();
+                return keys.getLong(1);
+            }
         } catch (SQLException e) {
             throw databaseError(e);
         }
     }
 
-    @Override
-    public List<CommandResult> recent(int limit) {
-        return query(SELECT_NEWEST_FIRST + " LIMIT ?", limit);
-    }
-
-    @Override
-    public List<CommandResult> all() {
-        return query(SELECT_NEWEST_FIRST, null);
-    }
-
-    private List<CommandResult> query(String sql, Integer limit) {
+    private List<ActivityEntry> query(String sql, Object... params) {
         try (Connection connection = db.open();
              PreparedStatement statement = connection.prepareStatement(sql)) {
-            if (limit != null) {
-                statement.setInt(1, limit);
+            for (int i = 0; i < params.length; i++) {
+                statement.setObject(i + 1, params[i]);
             }
             try (ResultSet rows = statement.executeQuery()) {
-                List<CommandResult> entries = new ArrayList<>();
+                List<ActivityEntry> entries = new ArrayList<>();
                 while (rows.next()) {
-                    entries.add(new CommandResult(rows.getInt("device_id"), rows.getString("device_name"),
-                            rows.getString("action"), rows.getObject("logged_at", LocalDateTime.class)));
+                    entries.add(toEntry(rows));
                 }
                 return entries;
             }
         } catch (SQLException e) {
             throw databaseError(e);
         }
+    }
+
+    private static ActivityEntry toEntry(ResultSet row) throws SQLException {
+        Integer value = row.getObject("value", Integer.class);
+        Long refLogId = row.getObject("ref_log_id", Long.class);
+        return new ActivityEntry(row.getLong("log_id"), row.getInt("device_id"), row.getString("device_name"),
+                row.getString("action"), ActivityType.valueOf(row.getString("activity_type")), value,
+                ActivitySource.valueOf(row.getString("source")), row.getString("detail"), refLogId,
+                row.getObject("logged_at", LocalDateTime.class));
     }
 }

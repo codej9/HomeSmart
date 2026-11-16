@@ -90,7 +90,7 @@ PIT also excludes MySQL DAO tests so mutations cannot change database rows.
 
 | Package | Purpose |
 |---|---|
-| `model` | `Device` base class and `Light`, `Thermostat`, `DoorLock`; `DeviceType` (kinds of device) |
+| `model` | `Device` base class and `Light`, `Thermostat`, `DoorLock`; `DeviceType` (kinds of device); `ActivityEntry`, `ActivityType`, `ActivitySource` and `Provenance` for the activity log |
 | `dao` | `DeviceDAO` storage interface; `MySqlDeviceDAO` (MySQL `devices` table) and `InMemoryDeviceDAO` (sample data fallback). `MySqlConnector` (shared JDBC connection). `ActivityLogDAO` storage interface; `MySqlActivityLogDAO` (MySQL `activity_log` table) and `InMemoryActivityLogDAO` (fallback) |
 | `service` | `DeviceService` – all device control logic and validation; `CommandResult` (one command's outcome) |
 | `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity` |
@@ -104,7 +104,7 @@ PIT also excludes MySQL DAO tests so mutations cannot change database rows.
   Lights also have `on`; thermostats have `temperature`, `minTemperature`, `maxTemperature`, `ecoTemperature` (20) and
   `ecoMode` (true at 20 °C); door locks have `locked`.
 - `flashMessage` / `flashError` – result of the last command (shown once).
-- `activity` – the 5 most recent commands as `CommandResult` items, newest first. Empty when the log cannot be read; `flashError` then holds the database message.
+- `activity` – the 5 most recent log entries (`ActivityEntry`), newest first. Empty when the log cannot be read; `flashError` then holds the database message.
 
 **POST `/devices`** with form fields:
 
@@ -122,7 +122,7 @@ instead of the server's default page, so users never see Java exception details.
 **Database:** `MySqlDeviceDAO` reads and updates the `devices` table from `homesmart.sql`
 (`power_on` for lights, `temperature` for thermostats, `locked` for door locks).
 
-**Activity log:** `DeviceService` logs every successful command after saving it.
+**Activity log:** `DeviceService` logs every command that changes a device, after saving it; a command that changes nothing logs nothing.
 `MySqlActivityLogDAO` stores each entry in the `activity_log` table (columns in `src/homesmart.sql`).
 
 **GET `/activity`** forwards to `WEB-INF/views/activity.jsp` with `activity`, the full log, newest first.
