@@ -57,7 +57,7 @@ For Tomcat 10.1, deploy `target/homesmart.war` (or add it as an artifact in Inte
 `DeviceServiceTest` checks the device logic on sample data. `MySqlDeviceDAOTest` checks that each command is saved in
 and read back from the MySQL test database; it runs only when `db.test.url` is set in `db.properties` and MySQL is
 reachable (otherwise it is skipped) and puts the original rows back afterwards. `MySqlActivityLogDAOTest` and `InMemoryActivityLogDAOTest` check that log entries are saved and read back.
-`SecurityAlertsTest` and `DoorAlertJobTest` check the door alert rule with a fixed clock.
+`SecurityAlertsTest` and `DoorAlertJobTest` check the door alert rule with a fixed clock. `EnergyEstimatorTest` checks the energy estimate on made-up log rows.
 
 With the app running, `bash scripts/http-smoke-test.sh` sends 35 real requests to it (every command plus every kind of
 bad request) and checks the HTTP codes and the message the dashboard shows. It changes the device states. On Windows,
@@ -93,9 +93,9 @@ PIT also excludes MySQL DAO tests so mutations cannot change database rows.
 |---|---|
 | `model` | `Device` base class and `Light`, `Thermostat`, `DoorLock`; `DeviceType` (kinds of device); `ActivityEntry`, `ActivityType`, `ActivitySource` and `Provenance` for the activity log |
 | `dao` | `DeviceDAO` storage interface; `MySqlDeviceDAO` (MySQL `devices` table) and `InMemoryDeviceDAO` (sample data fallback). `MySqlConnector` (shared JDBC connection). `ActivityLogDAO` storage interface; `MySqlActivityLogDAO` (MySQL `activity_log` table) and `InMemoryActivityLogDAO` (fallback) |
-| `service` | `DeviceService` – all device control logic and validation; `CommandResult` (one command's outcome); `SecurityAlerts` (door alert rule) |
+| `service` | `DeviceService` – all device control logic and validation; `CommandResult` (one command's outcome); `SecurityAlerts` (door alert rule); `EnergyEstimator` (energy estimate from the log) |
 | `job` | `DoorAlertJob` – writes the door alert to the activity log |
-| `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity`; the panel `AlertsPanelServlet` at `/panels/alerts`, built on `PanelServlet` |
+| `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity`; the panels `AlertsPanelServlet` at `/panels/alerts` and `EnergyPanelServlet` at `/panels/energy`, built on `PanelServlet` |
 | `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService` and `ActivityLogDAO`, and runs the background jobs |
 
 ## Backend contract (for the dashboard, database and activity log)
@@ -137,6 +137,10 @@ A request with the header `X-HomeSmart-Poll: 1` gets only the panel's content, s
 **Door alert:** `DoorAlertJob` checks every door lock every 30 seconds and adds one "Security alert: left unlocked for 10 min" row to the activity log for each unlock that lasts 10 minutes or more.
 The panel at `/panels/alerts` shows the alert with a "Lock door" button and refreshes every 30 seconds.
 Set the time with the `homesmart.doorAlertMinutes` context-param in `web.xml` and the check interval with `homesmart.jobDelaySeconds`; a JVM option of the same name overrides each, for example `-Dhomesmart.doorAlertMinutes=1`.
+
+**Energy estimate:** the panel at `/panels/energy` shows an estimate for today and the last 7 days, worked out from the activity log.
+A light counts 9 W while it is on, a thermostat shows its average setpoint, and the door lock is not estimated.
+The panel says the figures are estimates, not measurements.
 
 ## Release 2 – Frontend & Integration (Mahad)
 

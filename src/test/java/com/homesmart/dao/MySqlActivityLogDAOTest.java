@@ -136,11 +136,22 @@ class MySqlActivityLogDAOTest {
 
     @Test
     void typeQueriesFilterByDeviceTypeAndTime() {
+        Set<ActivityType> lockTypes = Set.of(ActivityType.LOCK, ActivityType.UNLOCK);
         record(DOOR, ActivityType.UNLOCK, null, T0);
         record(DOOR, ActivityType.LOCK, null, T0.plusHours(1));
         record(LIGHT, ActivityType.TURN_ON, null, T0.plusHours(2));
 
+        assertEquals(ActivityType.LOCK, firstOf(dao.ofTypesBetween(DOOR, lockTypes, T0, T0.plusHours(5))).type());
+        assertEquals(1, dao.ofTypesBetween(DOOR, lockTypes, T0, T0.plusHours(5)).size());
+        assertEquals(2, dao.ofTypesBetween(DOOR, lockTypes, T0.minusSeconds(1), T0.plusHours(1)).size());
+        assertEquals(ActivityType.UNLOCK,
+                dao.latestOfTypesAtOrBefore(DOOR, lockTypes, T0.plusMinutes(30)).orElseThrow().type());
+        assertTrue(dao.latestOfTypesAtOrBefore(DOOR, lockTypes, T0.minusSeconds(1)).isEmpty());
         assertTrue(dao.latestOfTypes(DOOR, Set.of(ActivityType.TURN_ON)).isEmpty());
+    }
+
+    private static ActivityEntry firstOf(List<ActivityEntry> entries) {
+        return entries.get(0);
     }
 
     @Test

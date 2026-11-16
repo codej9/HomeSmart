@@ -59,6 +59,23 @@ public class InMemoryActivityLogDAO implements ActivityLogDAO {
         return newestFirst(e -> e.deviceId() == deviceId && types.contains(e.type())).stream().findFirst();
     }
 
+    @Override
+    public synchronized Optional<ActivityEntry> latestOfTypesAtOrBefore(
+            int deviceId, Set<ActivityType> types, LocalDateTime at) {
+        return newestFirst(e -> e.deviceId() == deviceId && types.contains(e.type()) && !e.timestamp().isAfter(at))
+                .stream().findFirst();
+    }
+
+    @Override
+    public synchronized List<ActivityEntry> ofTypesBetween(
+            int deviceId, Set<ActivityType> types, LocalDateTime from, LocalDateTime to) {
+        return entries.stream()
+                .filter(e -> e.deviceId() == deviceId && types.contains(e.type())
+                        && e.timestamp().isAfter(from) && !e.timestamp().isAfter(to))
+                .sorted(OLDEST_FIRST)
+                .toList();
+    }
+
     private ActivityEntry add(int deviceId, String deviceName, String action, ActivityType type, Integer value,
                               ActivitySource source, String detail, Long refLogId, LocalDateTime timestamp) {
         ActivityEntry entry = new ActivityEntry(++lastLogId, deviceId, deviceName, action, type, value,

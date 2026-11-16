@@ -40,6 +40,7 @@ public class MySqlActivityLogDAO implements ActivityLogDAO {
 
     // log_id breaks ties between entries logged in the same instant
     private static final String NEWEST_FIRST = " ORDER BY a.logged_at DESC, a.log_id DESC";
+    private static final String OLDEST_FIRST = " ORDER BY a.logged_at ASC, a.log_id ASC";
 
     private final MySqlConnector db;
 
@@ -95,6 +96,20 @@ public class MySqlActivityLogDAO implements ActivityLogDAO {
     public Optional<ActivityEntry> latestOfTypes(int deviceId, Set<ActivityType> types) {
         return query(SELECT + "WHERE a.device_id = ? AND a.activity_type IN (" + marks(types) + ")"
                 + NEWEST_FIRST + " LIMIT 1", args(deviceId, types)).stream().findFirst();
+    }
+
+    @Override
+    public Optional<ActivityEntry> latestOfTypesAtOrBefore(int deviceId, Set<ActivityType> types, LocalDateTime at) {
+        return query(SELECT + "WHERE a.device_id = ? AND a.activity_type IN (" + marks(types)
+                + ") AND a.logged_at <= ?" + NEWEST_FIRST + " LIMIT 1", args(deviceId, types, at))
+                .stream().findFirst();
+    }
+
+    @Override
+    public List<ActivityEntry> ofTypesBetween(int deviceId, Set<ActivityType> types, LocalDateTime from,
+                                              LocalDateTime to) {
+        return query(SELECT + "WHERE a.device_id = ? AND a.activity_type IN (" + marks(types)
+                + ") AND a.logged_at > ? AND a.logged_at <= ?" + OLDEST_FIRST, args(deviceId, types, from, to));
     }
 
     private long insert(int deviceId, String action, ActivityType type, Integer value, ActivitySource source,

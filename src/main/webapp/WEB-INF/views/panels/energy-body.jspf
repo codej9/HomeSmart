@@ -1,0 +1,31 @@
+<%-- Energy table: ${energyRows} are EnergyPanelServlet.Row items, or ${databaseError} when they cannot be read. --%>
+<h2 class="hs-energy-title">Estimated energy use</h2>
+<c:choose>
+    <c:when test="${not empty databaseError}">
+        <p class="hs-energy-note"><c:out value="${databaseError}"/></p>
+    </c:when>
+    <c:otherwise>
+        <table class="hs-energy-table">
+            <thead>
+            <tr><th scope="col">DEVICE</th><th scope="col">TODAY</th><th scope="col">LAST 7 DAYS</th></tr>
+            </thead>
+            <tbody>
+            <c:forEach var="row" items="${energyRows}">
+                <tr>
+                    <th scope="row"><c:out value="${row.deviceName()}"/></th>
+                    <td>
+                        <c:out value="${row.today().text()}"/>
+                        <c:if test="${not empty row.today().note()}"><span class="hs-energy-note"><c:out value="${row.today().note()}"/></span></c:if>
+                    </td>
+                    <td>
+                        <c:out value="${row.week().text()}"/>
+                        <c:if test="${not empty row.week().note()}"><span class="hs-energy-note"><c:out value="${row.week().note()}"/></span></c:if>
+                    </td>
+                </tr>
+            </c:forEach>
+            </tbody>
+        </table>
+        <p class="hs-energy-note">Estimates from logged commands and an assumed 9 W LED bulb. Not measured.</p>
+        <p class="hs-energy-note">NRCan suggests 17 &deg;C when asleep or away and 20 &deg;C when awake at home (NRCan, 2025a).</p>
+    </c:otherwise>
+</c:choose>

@@ -33,4 +33,10 @@ public interface ActivityLogDAO {
 
     /** The newest entry of one of {@code types} for the device. */
     Optional<ActivityEntry> latestOfTypes(int deviceId, Set<ActivityType> types);
+
+    /** The newest entry of one of {@code types} for the device, logged at or before {@code at}. */
+    Optional<ActivityEntry> latestOfTypesAtOrBefore(int deviceId, Set<ActivityType> types, LocalDateTime at);
+
+    /** Entries of one of {@code types} for the device after {@code from}, up to and including {@code to}; oldest first. */
+    List<ActivityEntry> ofTypesBetween(int deviceId, Set<ActivityType> types, LocalDateTime from, LocalDateTime to);
 }

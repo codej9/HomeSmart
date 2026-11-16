@@ -69,6 +69,28 @@ class InMemoryActivityLogDAOTest {
     }
 
     @Test
+    void latestAtOrBeforeIncludesTheBoundary() {
+        record(1, ActivityType.TURN_ON, T0);
+        record(1, ActivityType.TURN_OFF, T0.plusHours(1));
+        Set<ActivityType> types = Set.of(ActivityType.TURN_ON, ActivityType.TURN_OFF);
+
+        assertEquals(ActivityType.TURN_OFF, log.latestOfTypesAtOrBefore(1, types, T0.plusHours(1)).orElseThrow().type());
+        assertEquals(ActivityType.TURN_ON, log.latestOfTypesAtOrBefore(1, types, T0.plusMinutes(59)).orElseThrow().type());
+        assertTrue(log.latestOfTypesAtOrBefore(1, types, T0.minusSeconds(1)).isEmpty());
+    }
+
+    @Test
+    void betweenExcludesFromIncludesToAndIsOldestFirst() {
+        record(1, ActivityType.TURN_ON, T0);
+        record(1, ActivityType.TURN_OFF, T0.plusHours(1));
+        record(1, ActivityType.TURN_ON, T0.plusHours(2));
+        Set<ActivityType> types = Set.of(ActivityType.TURN_ON, ActivityType.TURN_OFF);
+
+        List<ActivityEntry> rows = log.ofTypesBetween(1, types, T0, T0.plusHours(2));
+        assertEquals(List.of(ActivityType.TURN_OFF, ActivityType.TURN_ON), rows.stream().map(ActivityEntry::type).toList());
+    }
+
+    @Test
     void doorAlertIsRecordedOncePerUnlock() {
         long unlock = record(3, ActivityType.UNLOCK, T0);
 
