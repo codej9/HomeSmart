@@ -6,28 +6,19 @@ import com.homesmart.model.Device;
 import com.homesmart.model.DoorLock;
 import com.homesmart.service.DeviceService;
 import com.homesmart.service.SecurityAlerts;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * GET /panels/alerts: the door alert banners. The dashboard includes it, and alerts.js
- * fetches it again every 30 seconds with the header X-HomeSmart-Poll.
- */
+/** GET /panels/alerts: the door alert banners. alerts.js fetches it again every 30 seconds. */
 @WebServlet("/panels/alerts")
-public class AlertsPanelServlet extends HttpServlet {
+public class AlertsPanelServlet extends PanelServlet {
 
     static final String VIEW = "/WEB-INF/views/panels/alerts.jsp";
-
-    static final String POLL_HEADER = "X-HomeSmart-Poll";
 
     private DeviceService deviceService;
     private ActivityLogDAO activityLog;
@@ -41,22 +32,13 @@ public class AlertsPanelServlet extends HttpServlet {
     }
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        boolean poll = "1".equals(request.getHeader(POLL_HEADER));
-        request.setAttribute("panelPoll", poll);
-        try {
-            request.setAttribute("alerts", banners());
-        } catch (IllegalStateException e) {
-            log("Could not load alerts", e);
-            if (poll) {
-                response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-                return;
-            }
-            request.setAttribute("databaseError", DeviceServlet.DATABASE_UNAVAILABLE);
-        }
-        response.setContentType("text/html;charset=UTF-8");
-        request.getRequestDispatcher(VIEW).include(request, response);
+    protected String view() {
+        return VIEW;
+    }
+
+    @Override
+    protected void load(HttpServletRequest request) {
+        request.setAttribute("alerts", banners());
     }
 
     private List<SecurityAlerts.Banner> banners() {

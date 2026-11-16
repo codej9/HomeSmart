@@ -95,7 +95,7 @@ PIT also excludes MySQL DAO tests so mutations cannot change database rows.
 | `dao` | `DeviceDAO` storage interface; `MySqlDeviceDAO` (MySQL `devices` table) and `InMemoryDeviceDAO` (sample data fallback). `MySqlConnector` (shared JDBC connection). `ActivityLogDAO` storage interface; `MySqlActivityLogDAO` (MySQL `activity_log` table) and `InMemoryActivityLogDAO` (fallback) |
 | `service` | `DeviceService` – all device control logic and validation; `CommandResult` (one command's outcome); `SecurityAlerts` (door alert rule) |
 | `job` | `DoorAlertJob` – writes the door alert to the activity log |
-| `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity`; the panel `AlertsPanelServlet` at `/panels/alerts` |
+| `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity`; the panel `AlertsPanelServlet` at `/panels/alerts`, built on `PanelServlet` |
 | `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService` and `ActivityLogDAO`, and runs the background jobs |
 
 ## Backend contract (for the dashboard, database and activity log)
