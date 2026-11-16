@@ -54,7 +54,7 @@ public class DeviceService {
         Light light = getDevice(lightId, Light.class);
         light.setOn(on);
         deviceDAO.update(light);
-        return new CommandResult(light.getName(), on ? "Turned on" : "Turned off");
+        return new CommandResult(light.getId(), light.getName(), on ? "Turned on" : "Turned off");
     }
 
     // ---- Thermostat ----
@@ -63,7 +63,7 @@ public class DeviceService {
         Thermostat thermostat = getDevice(thermostatId, Thermostat.class);
         thermostat.setTemperature(celsius); // rejects values outside the allowed range
         deviceDAO.update(thermostat);
-        return new CommandResult(thermostat.getName(), "Set temperature to " + celsius + " °C");
+        return new CommandResult(thermostat.getId(), thermostat.getName(), "Set temperature to " + celsius + " °C");
     }
 
     /** Raises or lowers the target temperature by {@code delta} degrees. */
@@ -87,7 +87,7 @@ public class DeviceService {
         Thermostat thermostat = getDevice(thermostatId, Thermostat.class);
         thermostat.setTemperature(Thermostat.ECO_TEMPERATURE);
         deviceDAO.update(thermostat);
-        return new CommandResult(thermostat.getName(),
+        return new CommandResult(thermostat.getId(), thermostat.getName(),
                 "Eco mode: set temperature to " + Thermostat.ECO_TEMPERATURE + " °C");
     }
 
@@ -105,7 +105,7 @@ public class DeviceService {
         DoorLock doorLock = getDevice(lockId, DoorLock.class);
         doorLock.setLocked(locked);
         deviceDAO.update(doorLock);
-        return new CommandResult(doorLock.getName(), locked ? "Locked" : "Unlocked");
+        return new CommandResult(doorLock.getId(), doorLock.getName(), locked ? "Locked" : "Unlocked");
     }
 
     // ---- Request entry point ----

@@ -1,7 +1,7 @@
 package com.homesmart.servlet;
 
+import com.homesmart.dao.ActivityLogDAO;
 import com.homesmart.listener.AppContextListener;
-import com.homesmart.service.ActivityLog;
 import com.homesmart.service.CommandResult;
 import com.homesmart.service.DeviceService;
 import jakarta.servlet.ServletException;
@@ -30,7 +30,7 @@ public class DeviceServlet extends HttpServlet {
     static final String VIEW = "/WEB-INF/views/devices.jsp";
 
     private static final String FLASH_MESSAGE = "flashMessage";
-    private static final String FLASH_ERROR = "flashError";
+    static final String FLASH_ERROR = "flashError";
 
     /** Shown instead of the raw JDBC error; the full error goes to the server log. */
     static final String DATABASE_UNAVAILABLE =
@@ -39,12 +39,12 @@ public class DeviceServlet extends HttpServlet {
     static final int RECENT_ACTIVITY_LIMIT = 5;
 
     private DeviceService deviceService;
-    private ActivityLog activityLog;
+    private ActivityLogDAO activityLog;
 
     @Override
     public void init() {
         deviceService = (DeviceService) getServletContext().getAttribute(AppContextListener.DEVICE_SERVICE);
-        activityLog = (ActivityLog) getServletContext().getAttribute(AppContextListener.ACTIVITY_LOG);
+        activityLog = (ActivityLogDAO) getServletContext().getAttribute(AppContextListener.ACTIVITY_LOG);
     }
 
     @Override
@@ -59,7 +59,13 @@ public class DeviceServlet extends HttpServlet {
             request.setAttribute("devices", List.of());
             request.setAttribute(FLASH_ERROR, DATABASE_UNAVAILABLE);
         }
-        request.setAttribute("activity", activityLog.recent(RECENT_ACTIVITY_LIMIT));
+        try {
+            request.setAttribute("activity", activityLog.recent(RECENT_ACTIVITY_LIMIT));
+        } catch (IllegalStateException e) {
+            log("Could not load recent activity", e);
+            request.setAttribute("activity", List.of());
+            request.setAttribute(FLASH_ERROR, DATABASE_UNAVAILABLE);
+        }
         request.getRequestDispatcher(VIEW).forward(request, response);
     }
 
@@ -70,8 +76,8 @@ public class DeviceServlet extends HttpServlet {
             int deviceId = parseDeviceId(request.getParameter("deviceId"));
             CommandResult result = deviceService.execute(
                     deviceId, request.getParameter("action"), request.getParameter("value"));
-            activityLog.record(result);
             session.setAttribute(FLASH_MESSAGE, result.message());
+            recordActivity(result);
         } catch (IllegalArgumentException e) {
             // Invalid command; the message explains what was wrong
             session.setAttribute(FLASH_ERROR, e.getMessage());
@@ -81,6 +87,18 @@ public class DeviceServlet extends HttpServlet {
             session.setAttribute(FLASH_ERROR, DATABASE_UNAVAILABLE);
         }
         response.sendRedirect(request.getContextPath() + "/devices");
+    }
+
+    /**
+     * Runs after the command has already been saved, so a log failure must not report the command as failed.
+     * Entries carry the timestamp taken inside the DeviceService lock, so the log keeps command order.
+     */
+    private void recordActivity(CommandResult result) {
+        try {
+            activityLog.record(result);
+        } catch (IllegalStateException e) {
+            log("Command ran but could not be logged: " + result.message(), e);
+        }
     }
 
     private static int parseDeviceId(String value) {

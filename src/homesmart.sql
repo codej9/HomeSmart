@@ -42,6 +42,25 @@ LOCK TABLES `devices` WRITE;
 INSERT INTO `devices` VALUES (1,'Living Room Light','LIGHT',1,NULL,NULL),(2,'Thermostat','THERMOSTAT',NULL,24.0,NULL),(3,'Front Door Lock','DOOR_LOCK',NULL,NULL,0);
 /*!40000 ALTER TABLE `devices` ENABLE KEYS */;
 UNLOCK TABLES;
+
+--
+-- Table structure for table `activity_log`
+-- One row per successful device command. The log starts empty.
+--
+
+DROP TABLE IF EXISTS `activity_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `activity_log` (
+  `log_id` int NOT NULL AUTO_INCREMENT,
+  `device_id` int NOT NULL,
+  `action` varchar(100) NOT NULL,
+  `logged_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`log_id`),
+  KEY `idx_activity_log_logged_at` (`logged_at`),
+  CONSTRAINT `fk_activity_log_device` FOREIGN KEY (`device_id`) REFERENCES `devices` (`device_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

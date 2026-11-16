@@ -1,5 +1,5 @@
 <%--
-  Activity log. ActivityServlet provides ${activity}: CommandResult items, newest first.
+  Activity log. ActivityServlet provides ${activity}: CommandResult items, newest first, or ${flashError} when the log cannot be read.
 --%>
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
@@ -22,9 +22,16 @@
             <h1>Activity log</h1>
             <a class="text-link" href="${pageContext.request.contextPath}/devices"><span aria-hidden="true">←</span> Dashboard</a>
         </div>
-        <div class="activity-panel glass">
-            <%@ include file="activity-table.jspf" %>
-        </div>
+        <c:choose>
+            <c:when test="${not empty flashError}">
+                <div class="alert alert-error" role="alert"><c:out value="${flashError}"/></div>
+            </c:when>
+            <c:otherwise>
+                <div class="activity-panel glass">
+                    <%@ include file="activity-table.jspf" %>
+                </div>
+            </c:otherwise>
+        </c:choose>
     </main>
     <footer class="footer">HomeSmart · TechNest Solutions </footer>
 </div>

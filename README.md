@@ -10,7 +10,8 @@ Release 1 covers three devices: a light, a thermostat and a door lock.
 Release 1 includes a functional JSP dashboard with CSS styling and working controls for the light, thermostat, and door lock. Device statuses update after each action.
 
 The dashboard is connected to the team's MySQL `devices` table (`src/homesmart.sql`): every light, thermostat and door lock
-change is saved there and is still there after the server restarts. When the database is not set up, the app runs on sample data instead.
+change is saved there and is still there after the server restarts. The activity log is saved in the `activity_log` table, so it also survives a restart.
+When the database is not set up, the app runs on sample data instead.
 
 ## Database setup (MySQL)
 
@@ -20,7 +21,7 @@ Run these from the `HomeSmart` folder. Each `mysql` command asks for your MySQL 
    ```bash
    mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS homesmart; CREATE USER IF NOT EXISTS 'homesmart'@'localhost' IDENTIFIED BY 'homesmart'; GRANT ALL PRIVILEGES ON homesmart.* TO 'homesmart'@'localhost';"
    ```
-2. Import the `devices` table and its starting data (this replaces an existing `devices` table):
+2. Import the tables and starting data. This resets the devices and clears the activity log. Run it again whenever `src/homesmart.sql` changes:
    ```bash
    mysql -u root -p homesmart < src/homesmart.sql
    ```
@@ -40,8 +41,9 @@ Run these from the `HomeSmart` folder. Each `mysql` command asks for your MySQL 
 5. Start the app (see below). The console should print `[HomeSmart] Connected to MySQL at ...`.
 
 If `db.properties` is missing or MySQL is not running, the app still starts using in-memory sample data,
-logs a warning, and shows a notice on the page. If MySQL stops while the app is running, the dashboard shows
-"Could not reach the database" instead of an error page; start MySQL again and refresh.
+logs a warning, and shows a notice on the page. If the `activity_log` table is missing, the app warns at start-up and keeps the log in memory; re-run step 2 and restart.
+If MySQL stops while the app is running, the dashboard shows
+"Could not reach the database" instead of an error page; start MySQL again and refresh. The activity log page shows the same message.
 
 ## Run it
 
@@ -54,8 +56,7 @@ For Tomcat 10.1, deploy `target/homesmart.war` (or add it as an artifact in Inte
 
 `DeviceServiceTest` checks the device logic on sample data. `MySqlDeviceDAOTest` checks that each command is saved in
 and read back from the MySQL test database; it runs only when `db.test.url` is set in `db.properties` and MySQL is
-reachable (otherwise it is skipped) and puts the original rows back afterwards. `ActivityLogTest` checks the log
-order and size limit.
+reachable (otherwise it is skipped) and puts the original rows back afterwards. `MySqlActivityLogDAOTest` and `InMemoryActivityLogDAOTest` check that log entries are saved and read back.
 
 With the app running, `bash scripts/http-smoke-test.sh` sends 35 real requests to it (every command plus every kind of
 bad request) and checks the HTTP codes and the message the dashboard shows. It changes the device states. On Windows,
@@ -89,11 +90,11 @@ PIT also excludes MySQL DAO tests so mutations cannot change database rows.
 
 | Package | Purpose |
 |---|---|
-| `model` | `Device` base class and `Light`, `Thermostat`, `DoorLock` |
-| `dao` | `DeviceDAO` storage interface; `MySqlDeviceDAO` (MySQL `devices` table) and `InMemoryDeviceDAO` (sample data fallback) |
-| `service` | `DeviceService` – all device control logic and validation; `CommandResult`; `ActivityLog` (in-memory command history) |
+| `model` | `Device` base class and `Light`, `Thermostat`, `DoorLock`; `DeviceType` (kinds of device) |
+| `dao` | `DeviceDAO` storage interface; `MySqlDeviceDAO` (MySQL `devices` table) and `InMemoryDeviceDAO` (sample data fallback). `MySqlConnector` (shared JDBC connection). `ActivityLogDAO` storage interface; `MySqlActivityLogDAO` (MySQL `activity_log` table) and `InMemoryActivityLogDAO` (fallback) |
+| `service` | `DeviceService` – all device control logic and validation; `CommandResult` (one command's outcome) |
 | `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity` |
-| `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService` and `ActivityLog` |
+| `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService` and `ActivityLogDAO` |
 
 ## Backend contract (for the dashboard, database and activity log)
 
@@ -103,7 +104,7 @@ PIT also excludes MySQL DAO tests so mutations cannot change database rows.
   Lights also have `on`; thermostats have `temperature`, `minTemperature`, `maxTemperature`, `ecoTemperature` (20) and
   `ecoMode` (true at 20 °C); door locks have `locked`.
 - `flashMessage` / `flashError` – result of the last command (shown once).
-- `activity` – the 5 most recent commands as `CommandResult` items, newest first.
+- `activity` – the 5 most recent commands as `CommandResult` items, newest first. Empty when the log cannot be read; `flashError` then holds the database message.
 
 **POST `/devices`** with form fields:
 
@@ -121,8 +122,8 @@ instead of the server's default page, so users never see Java exception details.
 **Database:** `MySqlDeviceDAO` reads and updates the `devices` table from `homesmart.sql`
 (`power_on` for lights, `temperature` for thermostats, `locked` for door locks).
 
-**Activity log:** every successful command is recorded as a `CommandResult(deviceName, action, timestamp)`.
-The log is kept in memory, holds the last 200 commands, and clears when the server restarts.
+**Activity log:** `DeviceService` logs every successful command after saving it.
+`MySqlActivityLogDAO` stores each entry in the `activity_log` table (columns in `src/homesmart.sql`).
 
 **GET `/activity`** forwards to `WEB-INF/views/activity.jsp` with `activity`, the full log, newest first.
 

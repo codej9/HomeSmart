@@ -9,7 +9,6 @@ import com.homesmart.model.Thermostat;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -18,6 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Logger;
+
+import static com.homesmart.dao.MySqlConnector.databaseError;
 
 /**
  * Stores device state in the MySQL {@code devices} table (see homesmart.sql).
@@ -35,25 +36,15 @@ public class MySqlDeviceDAO implements DeviceDAO {
     private static final String UPDATE_DEVICE =
             "UPDATE devices SET power_on = ?, temperature = ?, locked = ? WHERE device_id = ?";
 
-    private final String url;
-    private final String user;
-    private final String password;
+    private final MySqlConnector db;
 
     public MySqlDeviceDAO(String url, String user, String password) {
-        this.url = url;
-        this.user = user;
-        this.password = password;
-        try {
-            // Tomcat does not always auto-register JDBC drivers packaged in WEB-INF/lib
-            Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            throw new IllegalStateException("MySQL driver is missing from the build", e);
-        }
+        this.db = new MySqlConnector(url, user, password);
     }
 
     /** Opens and closes one connection so start-up can tell whether the database is reachable. */
     public void checkConnection() {
-        try (Connection ignored = connect()) {
+        try (Connection ignored = db.open()) {
             // connected
         } catch (SQLException e) {
             throw databaseError(e);
@@ -62,7 +53,7 @@ public class MySqlDeviceDAO implements DeviceDAO {
 
     @Override
     public List<Device> findAll() {
-        try (Connection connection = connect();
+        try (Connection connection = db.open();
              PreparedStatement statement = connection.prepareStatement(SELECT_DEVICES + " ORDER BY device_id");
              ResultSet rows = statement.executeQuery()) {
             List<Device> devices = new ArrayList<>();
@@ -77,7 +68,7 @@ public class MySqlDeviceDAO implements DeviceDAO {
 
     @Override
     public Optional<Device> findById(int id) {
-        try (Connection connection = connect();
+        try (Connection connection = db.open();
              PreparedStatement statement = connection.prepareStatement(SELECT_DEVICES + " WHERE device_id = ?")) {
             statement.setInt(1, id);
             try (ResultSet rows = statement.executeQuery()) {
@@ -101,7 +92,7 @@ public class MySqlDeviceDAO implements DeviceDAO {
             locked = doorLock.isLocked();
         }
 
-        try (Connection connection = connect();
+        try (Connection connection = db.open();
              PreparedStatement statement = connection.prepareStatement(UPDATE_DEVICE)) {
             statement.setObject(1, powerOn, Types.BOOLEAN);
             statement.setObject(2, temperature, Types.INTEGER);
@@ -113,10 +104,6 @@ public class MySqlDeviceDAO implements DeviceDAO {
         } catch (SQLException e) {
             throw databaseError(e);
         }
-    }
-
-    private Connection connect() throws SQLException {
-        return DriverManager.getConnection(url, user, password);
     }
 
     private static Device toDevice(ResultSet row) throws SQLException {
@@ -153,9 +140,5 @@ public class MySqlDeviceDAO implements DeviceDAO {
                     + " °C); using " + safe + " °C");
         }
         return safe;
-    }
-
-    private IllegalStateException databaseError(SQLException e) {
-        return new IllegalStateException("Database error: " + e.getMessage(), e);
     }
 }

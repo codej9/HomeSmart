@@ -1,9 +1,11 @@
 package com.homesmart.listener;
 
+import com.homesmart.dao.ActivityLogDAO;
 import com.homesmart.dao.DeviceDAO;
+import com.homesmart.dao.InMemoryActivityLogDAO;
 import com.homesmart.dao.InMemoryDeviceDAO;
+import com.homesmart.dao.MySqlActivityLogDAO;
 import com.homesmart.dao.MySqlDeviceDAO;
-import com.homesmart.service.ActivityLog;
 import com.homesmart.service.DeviceService;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
@@ -17,7 +19,7 @@ import java.util.Locale;
 import java.util.Properties;
 
 /**
- * Creates one shared DeviceService and ActivityLog when the application starts,
+ * Creates one shared DeviceService and ActivityLogDAO when the application starts,
  * so every servlet and JSP works with the same state.
  */
 @WebListener
@@ -37,8 +39,11 @@ public class AppContextListener implements ServletContextListener {
     @Override
     public void contextInitialized(ServletContextEvent event) {
         ServletContext context = event.getServletContext();
-        context.setAttribute(DEVICE_SERVICE, new DeviceService(createDeviceDAO(context)));
-        context.setAttribute(ACTIVITY_LOG, new ActivityLog());
+        Properties config = loadDbConfig();
+        DeviceDAO deviceDAO = createDeviceDAO(context, config);
+        context.setAttribute(DEVICE_SERVICE, new DeviceService(deviceDAO));
+        context.setAttribute(ACTIVITY_LOG, deviceDAO instanceof MySqlDeviceDAO
+                ? createActivityLogDAO(context, config) : new InMemoryActivityLogDAO());
         context.setAttribute(TIME_FORMAT, DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a", Locale.ENGLISH));
     }
 
@@ -46,8 +51,7 @@ public class AppContextListener implements ServletContextListener {
      * Uses MySQL when db.properties is present and the database is reachable.
      * Otherwise falls back to in-memory sample data, so the app still runs without a database.
      */
-    private static DeviceDAO createDeviceDAO(ServletContext context) {
-        Properties config = loadDbConfig();
+    private static DeviceDAO createDeviceDAO(ServletContext context, Properties config) {
         if (config == null) {
             return useSampleData(context, DB_CONFIG + " not found");
         }
@@ -61,6 +65,20 @@ public class AppContextListener implements ServletContextListener {
             return useSampleData(context, e.getMessage());
         }
         log(context, "Connected to MySQL at " + url);
+        return mySqlDAO;
+    }
+
+    /** Uses the MySQL {@code activity_log} table, or an in-memory log when the table is missing. */
+    private static ActivityLogDAO createActivityLogDAO(ServletContext context, Properties config) {
+        MySqlActivityLogDAO mySqlDAO = new MySqlActivityLogDAO(
+                config.getProperty("db.url"), config.getProperty("db.user"), config.getProperty("db.password", ""));
+        try {
+            mySqlDAO.checkTable();
+        } catch (IllegalStateException e) {
+            log(context, "WARNING: activity_log table not available (" + e.getMessage()
+                    + "). Import src/homesmart.sql to create it. Using an in-memory activity log; history will not be saved.");
+            return new InMemoryActivityLogDAO();
+        }
         return mySqlDAO;
     }
 
