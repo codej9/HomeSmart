@@ -11,28 +11,23 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Integration tests: commands are saved in the MySQL {@code activity_log} table (homesmart.sql)
  * and read back with the device name from {@code devices}.
  *
- * <p>Runs only when db.properties exists, MySQL is reachable and the table is imported, otherwise
- * every test is skipped. Rows that already exist are left alone; only the rows a test adds are removed.
+ * <p>Runs on the test database from {@code db.test.url}, never on the app's own database. Without it every
+ * test is skipped (see {@link TestDatabase}). Each test starts and ends with an empty log.
  */
 class MySqlActivityLogDAOTest {
 
@@ -40,57 +35,46 @@ class MySqlActivityLogDAOTest {
     private static final int THERMOSTAT = 2;
     private static final int DOOR = 3;
 
-    private Properties config;
+    private TestDatabase.Config database;
     private MySqlActivityLogDAO dao;
-    private int lastLogIdBefore;
 
     @BeforeEach
-    void connect() throws IOException, SQLException {
-        config = new Properties();
-        try (InputStream in = getClass().getClassLoader().getResourceAsStream("db.properties")) {
-            assumeTrue(in != null, "db.properties not found");
-            config.load(in);
-        }
-        dao = new MySqlActivityLogDAO(url(), config.getProperty("db.user"), password());
-        try {
-            dao.checkTable();
-        } catch (IllegalStateException e) {
-            assumeTrue(false, "activity_log not available: " + e.getMessage());
-        }
-        lastLogIdBefore = scalar("SELECT COALESCE(MAX(log_id), 0) FROM activity_log");
+    void connect() throws SQLException {
+        database = TestDatabase.config();
+        dao = new MySqlActivityLogDAO(url(), user(), password());
+        dao.checkTable();
+        clearLog();
     }
 
     @AfterEach
-    void removeRowsAddedByTest() throws SQLException {
+    void clearRows() throws SQLException {
         if (dao != null) {
-            // alert rows point at their unlock row, so they go first
-            for (String filter : new String[] {"ref_log_id IS NOT NULL", "1 = 1"}) {
-                try (Connection c = open(); PreparedStatement s = c.prepareStatement(
-                        "DELETE FROM activity_log WHERE log_id > ? AND " + filter)) {
-                    s.setInt(1, lastLogIdBefore);
-                    s.executeUpdate();
-                }
-            }
+            clearLog();
+        }
+    }
+
+    /** Alert rows point at their unlock row, so they go first. Device rows stay. */
+    private void clearLog() throws SQLException {
+        try (Connection c = open(); Statement s = c.createStatement()) {
+            s.executeUpdate("DELETE FROM activity_log WHERE ref_log_id IS NOT NULL");
+            s.executeUpdate("DELETE FROM activity_log");
         }
     }
 
     private String url() {
-        return config.getProperty("db.url");
+        return database.url();
+    }
+
+    private String user() {
+        return database.user();
     }
 
     private String password() {
-        return config.getProperty("db.password", "");
+        return database.password();
     }
 
     private Connection open() throws SQLException {
-        return DriverManager.getConnection(url(), config.getProperty("db.user"), password());
-    }
-
-    private int scalar(String sql) throws SQLException {
-        try (Connection c = open(); PreparedStatement s = c.prepareStatement(sql); ResultSet r = s.executeQuery()) {
-            r.next();
-            return r.getInt(1);
-        }
+        return DriverManager.getConnection(url(), user(), password());
     }
 
     private static final LocalDateTime T0 = LocalDateTime.of(2000, 1, 1, 10, 0);
@@ -101,7 +85,7 @@ class MySqlActivityLogDAOTest {
 
     /** Entries this test added (all dated year 2000), newest first. A new DAO reads them as a restarted app would. */
     private List<ActivityEntry> added() {
-        return new MySqlActivityLogDAO(url(), config.getProperty("db.user"), password()).all().stream()
+        return new MySqlActivityLogDAO(url(), user(), password()).all().stream()
                 .filter(e -> e.timestamp().getYear() == 2000)
                 .toList();
     }
@@ -117,7 +101,7 @@ class MySqlActivityLogDAOTest {
         ActivityEntry entry = entries.get(0);
         assertEquals(id, entry.logId());
         assertEquals(THERMOSTAT, entry.deviceId());
-        assertEquals(new MySqlDeviceDAO(url(), config.getProperty("db.user"), password())
+        assertEquals(new MySqlDeviceDAO(url(), user(), password())
                 .findById(THERMOSTAT).orElseThrow().getName(), entry.deviceName());
         assertEquals("Set temperature to 22 °C (schedule: Night)", entry.action());
         assertEquals(ActivityType.SET_TEMPERATURE, entry.type());
@@ -151,7 +135,7 @@ class MySqlActivityLogDAOTest {
     @Test
     void commandRunThroughServiceIsLoggedUnderItsDevice() {
         DeviceService service = new DeviceService(
-                new MySqlDeviceDAO(url(), config.getProperty("db.user"), password()), dao);
+                new MySqlDeviceDAO(url(), user(), password()), dao);
         boolean wasOn = ((Light) service.getDevice(LIGHT)).isOn();
         try {
             CommandResult result = service.execute(LIGHT, "toggle", null);
