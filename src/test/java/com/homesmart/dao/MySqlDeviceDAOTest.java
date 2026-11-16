@@ -11,8 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -20,42 +18,31 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
-import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Integration tests: device commands are saved in the MySQL {@code devices} table (homesmart.sql)
  * and read back from it.
  *
- * <p>Runs only when db.properties exists and MySQL is reachable, otherwise every test is skipped,
- * so the build still passes without a database. The original rows are put back after each test.
+ * <p>Runs on the test database from {@code db.test.url}, never on the app's own database. Without it every
+ * test is skipped (see {@link TestDatabase}). The original rows are put back after each test.
  */
 class MySqlDeviceDAOTest {
 
-    private Properties config;
+    private TestDatabase.Config database;
     private MySqlDeviceDAO dao;
     private DeviceService service;
     private List<Device> originalDevices;
 
     @BeforeEach
-    void connect() throws IOException {
-        config = new Properties();
-        try (InputStream in = getClass().getClassLoader().getResourceAsStream("db.properties")) {
-            assumeTrue(in != null, "db.properties not found");
-            config.load(in);
-        }
+    void connect() {
+        database = TestDatabase.config();
         dao = newDao();
-        try {
-            dao.checkConnection();
-        } catch (IllegalStateException e) {
-            assumeTrue(false, "MySQL not reachable: " + e.getMessage());
-        }
         service = new DeviceService(dao);
         originalDevices = dao.findAll();
     }
@@ -68,8 +55,7 @@ class MySqlDeviceDAOTest {
     }
 
     private MySqlDeviceDAO newDao() {
-        return new MySqlDeviceDAO(
-                config.getProperty("db.url"), config.getProperty("db.user"), config.getProperty("db.password", ""));
+        return new MySqlDeviceDAO(database.url(), database.user(), database.password());
     }
 
     /** Reads the row with a brand-new DAO, exactly as the app would after a restart. */
@@ -79,8 +65,7 @@ class MySqlDeviceDAOTest {
 
     /** Writes a value straight into the temperature column, as someone editing the table by hand could. */
     private void writeRawTemperature(int deviceId, String value) throws SQLException {
-        try (Connection connection = DriverManager.getConnection(config.getProperty("db.url"),
-                config.getProperty("db.user"), config.getProperty("db.password", ""));
+        try (Connection connection = DriverManager.getConnection(database.url(), database.user(), database.password());
              PreparedStatement statement = connection.prepareStatement(
                      "UPDATE devices SET temperature = ? WHERE device_id = ?")) {
             statement.setObject(1, value == null ? null : new BigDecimal(value), Types.DECIMAL);
