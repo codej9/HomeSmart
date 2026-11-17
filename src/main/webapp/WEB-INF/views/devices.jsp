@@ -105,10 +105,12 @@
 
                     <h3><c:out value="${device.name}"/></h3>
 
+                    <c:if test="${device.type != 'THERMOSTAT'}">
                     <div class="status-line">
                         <span class="status-dot ${device.type == 'LIGHT' && device.on ? 'is-active' : ''}"></span>
                         <span>Status: <strong><c:out value="${device.status}"/></strong></span>
                     </div>
+                    </c:if>
 
                     <div class="card-controls">
                         <c:choose>
@@ -126,6 +128,7 @@
                             </c:when>
 
                             <c:when test="${device.type == 'THERMOSTAT'}">
+                                <div class="temp-caption">Current setpoint</div>
                                 <div class="temp-adjust">
                                     <form method="post" action="${pageContext.request.contextPath}/devices">
                                         <input type="hidden" name="deviceId" value="${device.id}">

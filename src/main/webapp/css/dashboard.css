@@ -301,7 +301,8 @@ body {
     font-weight: 600;
 }
 
-.target-form label {
+.target-form label,
+.temp-caption {
     font-size: 12px;
     color: #d1d8de;
     display: block;
@@ -502,6 +503,7 @@ body.light-mode .category,
 body.light-mode .section-note,
 body.light-mode .hero-subtitle,
 body.light-mode .status-line,
+body.light-mode .temp-caption,
 body.light-mode .target-form label,
 body.light-mode .footer,
 body.light-mode .empty-state,
