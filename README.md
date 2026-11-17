@@ -61,6 +61,8 @@ and read back from the MySQL test database; it runs only when `db.test.url` is s
 reachable (otherwise it is skipped) and puts the original rows back afterwards. `MySqlActivityLogDAOTest` and `InMemoryActivityLogDAOTest` check that log entries are saved and read back.
 `SecurityAlertsTest` and `DoorAlertJobTest` check the door alert rule with a fixed clock. `EnergyEstimatorTest` checks the energy estimate on made-up log rows.
 `ScheduleServiceTest` checks when a schedule runs and which runs come next, with a fixed clock.
+`PasswordHasherTest`, `LoginThrottleTest` and `SetupServiceTest` check hashing, the sign-in throttle and the first-account rules. `AuthFilterTest`, `CsrfFilterTest` and
+`SecurityFiltersTest` run the filters on fake requests. `MySqlUserDAOTest` checks that accounts are saved in and read back from the `users` table of the test database.
 
 With the app running, `bash scripts/http-smoke-test.sh` sends 35 real requests to it (every command plus every kind of
 bad request) and checks the HTTP codes and the message the dashboard shows. It changes the device states. On Windows,
@@ -173,6 +175,7 @@ Five failed sign-ins for one username from one address lock that pair for 15 min
 <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
 ```
 Pages set a Content-Security-Policy, so inline `<script>` and `style=""` attributes do not work. Put scripts in `js/` and styles in `css/`.
+A full page includes the shared top bar and footer instead of copying them: `<%@ include file="/WEB-INF/views/topbar.jspf" %>` and `<%@ include file="/WEB-INF/views/footer.jspf" %>`.
 
 **Remote access.** Deploy the WAR to the `webapps` folder of a Tomcat 10.1 instance, run `tailscale serve --bg 8081` (use your Tomcat port) and open `https://<machine>.<tailnet>.ts.net/homesmart/` with the trailing slash.
 `META-INF/context.xml` trusts the `X-Forwarded-*` headers only from the same machine, so `mvn jetty:run` and IDE-managed Tomcat servers, which skip that file, are for this machine only.

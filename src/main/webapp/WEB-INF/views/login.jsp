@@ -15,10 +15,7 @@
 </head>
 <body>
 <div class="dashboard-shell">
-    <header class="topbar glass">
-        <div class="brand"><span class="brand-mark" aria-hidden="true">⌂</span><span>Home<span class="brand-accent">Smart</span></span></div>
-        <span class="topbar-label">HOME CONTROL</span>
-    </header>
+    <%@ include file="/WEB-INF/views/topbar.jspf" %>
     <main class="main-content">
         <div class="login-panel glass">
             <h1>Sign in</h1>
@@ -39,7 +36,7 @@
             </form>
         </div>
     </main>
-    <footer class="footer">HomeSmart · TechNest Solutions </footer>
+    <%@ include file="/WEB-INF/views/footer.jspf" %>
 </div>
 </body>
 </html>

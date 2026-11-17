@@ -2,7 +2,7 @@
   Door alert panel. AlertsPanelServlet provides ${alerts} or ${databaseError}, and ${panelPoll}.
   A poll gets only the fragment, so alerts.js can swap it into the page.
 --%>
-<%@ page contentType="text/html;charset=UTF-8" session="false" %>
+<%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <c:choose>
     <c:when test="${panelPoll}"><%@ include file="alerts-body.jspf" %></c:when>

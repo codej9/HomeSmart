@@ -16,10 +16,7 @@
 </head>
 <body>
 <div class="dashboard-shell">
-    <header class="topbar glass">
-        <div class="brand"><span class="brand-mark" aria-hidden="true">⌂</span><span>Home<span class="brand-accent">Smart</span></span></div>
-        <span class="topbar-label">HOME CONTROL</span>
-    </header>
+    <%@ include file="/WEB-INF/views/topbar.jspf" %>
     <main class="main-content">
         <div class="section-heading page-heading">
             <h1>Schedules</h1>
@@ -39,6 +36,7 @@
                 <section class="hs-panel glass">
                     <h2 class="hs-schedules-title">New schedule</h2>
                     <form class="hs-schedules-form" method="post" action="${pageContext.request.contextPath}/schedules">
+                        <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                         <input type="hidden" name="op" value="create">
                         <label for="schedule-name">Name</label>
                         <input id="schedule-name" type="text" name="name" maxlength="50" required>
@@ -100,6 +98,7 @@
                                         </td>
                                         <td class="hs-schedules-controls">
                                             <form method="post" action="${pageContext.request.contextPath}/schedules">
+                                                <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                                 <input type="hidden" name="scheduleId" value="${schedule.id()}">
                                                 <button class="hs-schedules-button" type="submit" name="op" value="${schedule.enabled() ? 'disable' : 'enable'}">${schedule.enabled() ? 'Turn off' : 'Turn on'}</button>
                                                 <button class="hs-schedules-button" type="submit" name="op" value="delete">Delete</button>
@@ -114,8 +113,15 @@
                 </section>
             </c:otherwise>
         </c:choose>
+        <div class="section-heading page-heading">
+            <span class="section-note">Signed in as <c:out value="${sessionScope.username}"/></span>
+            <form method="post" action="${pageContext.request.contextPath}/logout">
+                <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
+                <button class="small-button" type="submit">Log out</button>
+            </form>
+        </div>
     </main>
-    <footer class="footer">HomeSmart · TechNest Solutions </footer>
+    <%@ include file="/WEB-INF/views/footer.jspf" %>
 </div>
 </body>
 </html>

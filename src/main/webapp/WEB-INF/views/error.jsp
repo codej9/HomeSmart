@@ -15,9 +15,7 @@
 </head>
 <body>
 <div class="dashboard-shell">
-    <header class="topbar glass">
-        <div class="brand"><span class="brand-mark" aria-hidden="true">⌂</span><span>Home<span class="brand-accent">Smart</span></span></div>
-    </header>
+    <%@ include file="/WEB-INF/views/topbar.jspf" %>
     <main class="main-content">
         <div class="hero">
             <p class="eyebrow">${notFound ? 'ERROR 404' : 'ERROR'}</p>
@@ -26,7 +24,7 @@
         </div>
         <a class="text-link" href="${pageContext.request.contextPath}/devices"><span aria-hidden="true">←</span> Back to the dashboard</a>
     </main>
-    <footer class="footer">HomeSmart · TechNest Solutions </footer>
+    <%@ include file="/WEB-INF/views/footer.jspf" %>
 </div>
 </body>
 </html>

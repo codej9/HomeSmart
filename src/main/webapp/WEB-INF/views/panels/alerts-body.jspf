@@ -8,6 +8,7 @@
             <div class="hs-alert">
                 <span class="hs-alert-text"><c:out value="${alert.text()}"/></span>
                 <form method="post" action="${pageContext.request.contextPath}/devices">
+                    <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                     <input type="hidden" name="deviceId" value="${alert.deviceId()}">
                     <button class="hs-alert-button" type="submit" name="action" value="lock">Lock door</button>
                 </form>
