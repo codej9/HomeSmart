@@ -15,7 +15,7 @@
 <div class="dashboard-shell">
     <header class="topbar glass">
         <div class="brand"><span class="brand-mark" aria-hidden="true">⌂</span><span>Home<span class="brand-accent">Smart</span></span></div>
-        <span class="topbar-label">HOME CONTROL / RELEASE 1</span>
+        <span class="topbar-label">HOME CONTROL</span>
     </header>
     <main class="main-content">
         <div class="section-heading page-heading">
@@ -32,6 +32,13 @@
                 </div>
             </c:otherwise>
         </c:choose>
+        <div class="section-heading page-heading">
+            <span class="section-note">Signed in as <c:out value="${sessionScope.username}"/></span>
+            <form method="post" action="${pageContext.request.contextPath}/logout">
+                <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
+                <button class="small-button" type="submit">Log out</button>
+            </form>
+        </div>
     </main>
     <footer class="footer">HomeSmart · TechNest Solutions </footer>
 </div>
