@@ -128,3 +128,51 @@
     overflow: hidden;
     clip: rect(0 0 0 0);
 }
+
+@media (max-width: 570px) {
+    .hs-schedules-form {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .hs-schedules-form input[type="text"],
+    .hs-schedules-form input[type="number"],
+    .hs-schedules-form input[type="time"],
+    .hs-schedules-form select {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    .hs-schedules-days {
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    .hs-schedules-table,
+    .hs-schedules-table tbody,
+    .hs-schedules-table tr,
+    .hs-schedules-table th,
+    .hs-schedules-table td {
+        display: block;
+    }
+
+    .hs-schedules-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+
+    .hs-schedules-table tr {
+        padding: 12px 0;
+        border-top: 1px solid var(--hs-border);
+    }
+
+    .hs-schedules-table th,
+    .hs-schedules-table td {
+        padding: 2px 0;
+        border-top: 0;
+    }
+}
