@@ -80,8 +80,9 @@ public class MySqlScheduleDAO implements ScheduleDAO {
 
     @Override
     public boolean setEnabled(int scheduleId, boolean enabled, LocalDate lastRunOn) {
-        return update("UPDATE schedules SET enabled = ?, last_run_on = ? WHERE schedule_id = ?",
-                enabled, lastRunOn == null ? null : Date.valueOf(lastRunOn), scheduleId);
+        return update("UPDATE schedules SET enabled = ?, last_run_on = ?,"
+                        + " last_result = CASE WHEN ? THEN NULL ELSE last_result END WHERE schedule_id = ?",
+                enabled, lastRunOn == null ? null : Date.valueOf(lastRunOn), enabled, scheduleId);
     }
 
     @Override

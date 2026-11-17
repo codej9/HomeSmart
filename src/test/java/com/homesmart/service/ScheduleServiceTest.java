@@ -233,6 +233,7 @@ class ScheduleServiceTest {
     @Test
     void enablingSkipsAnOccurrenceThatAlreadyPassedToday() {
         Schedule schedule = add("Paused", 1, ActivityType.TURN_ON, null, "07:30", ALL_DAYS, false, TODAY.minusDays(3));
+        schedules.recordResult(schedule.id(), "OK");
 
         service.setEnabled(schedule.id(), true);
         service.runDue();
@@ -240,6 +241,7 @@ class ScheduleServiceTest {
         assertFalse(lightIsOn());
         assertTrue(reload(schedule).enabled());
         assertEquals(TODAY, reload(schedule).lastRunOn());
+        assertNull(reload(schedule).lastResult());
     }
 
     @Test

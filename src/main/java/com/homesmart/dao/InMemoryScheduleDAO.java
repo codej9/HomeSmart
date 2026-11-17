@@ -40,7 +40,7 @@ public class InMemoryScheduleDAO implements ScheduleDAO {
     @Override
     public synchronized boolean setEnabled(int scheduleId, boolean enabled, LocalDate lastRunOn) {
         return replace(scheduleId, s -> new Schedule(s.id(), s.name(), s.deviceId(), s.type(), s.value(), s.runAt(),
-                s.days(), enabled, lastRunOn, s.lastResult()));
+                s.days(), enabled, lastRunOn, enabled ? null : s.lastResult()));
     }
 
     @Override
@@ -55,7 +55,8 @@ public class InMemoryScheduleDAO implements ScheduleDAO {
                 || (schedule.lastRunOn() != null && !schedule.lastRunOn().isBefore(occurrence))) {
             return false;
         }
-        return setEnabled(scheduleId, true, occurrence);
+        return replace(scheduleId, s -> new Schedule(s.id(), s.name(), s.deviceId(), s.type(), s.value(), s.runAt(),
+                s.days(), true, occurrence, s.lastResult()));
     }
 
     @Override

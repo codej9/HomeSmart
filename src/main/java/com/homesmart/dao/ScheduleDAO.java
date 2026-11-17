@@ -20,7 +20,10 @@ public interface ScheduleDAO {
     /** Saves a new schedule and returns it with its new id. */
     Schedule create(Schedule schedule);
 
-    /** Sets {@code enabled} and {@code last_run_on}. Returns false when no schedule has that id. */
+    /**
+     * Sets {@code enabled} and {@code last_run_on}, and clears {@code last_result} when enabling.
+     * Returns false when no schedule has that id.
+     */
     boolean setEnabled(int scheduleId, boolean enabled, LocalDate lastRunOn);
 
     /** Returns false when no schedule has that id. */

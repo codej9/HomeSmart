@@ -101,10 +101,16 @@ class MySqlScheduleDAOTest {
     @Test
     void enableAndDisableChangeTheRowAndReportAMissingId() {
         Schedule schedule = add("Toggle", "07:00", true, DAY.minusDays(1));
+        dao.recordResult(schedule.id(), "OK");
 
         assertTrue(dao.setEnabled(schedule.id(), false, DAY));
         assertFalse(dao.find(schedule.id()).orElseThrow().enabled());
         assertEquals(DAY, dao.find(schedule.id()).orElseThrow().lastRunOn());
+        assertEquals("OK", dao.find(schedule.id()).orElseThrow().lastResult());
+
+        assertTrue(dao.setEnabled(schedule.id(), true, DAY.plusDays(1)));
+        assertTrue(dao.find(schedule.id()).orElseThrow().enabled());
+        assertNull(dao.find(schedule.id()).orElseThrow().lastResult());
         assertFalse(dao.setEnabled(999_999, true, DAY));
     }
 
