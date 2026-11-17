@@ -67,6 +67,7 @@ reachable (otherwise it is skipped) and puts the original rows back afterwards. 
 With the app running, `bash scripts/http-smoke-test.sh` sends 35 real requests to it (every command plus every kind of
 bad request) and checks the HTTP codes and the message the dashboard shows. It changes the device states. On Windows,
 run it from Git Bash.
+The script signs in first, so run it as `HS_USER=<username> HS_PASSWORD=<password> bash scripts/http-smoke-test.sh` with an existing account.
 
 ## Build and test
 
