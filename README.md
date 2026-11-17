@@ -21,7 +21,7 @@ Run these from the `HomeSmart` folder. Each `mysql` command asks for your MySQL 
    ```bash
    mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS homesmart; CREATE USER IF NOT EXISTS 'homesmart'@'localhost' IDENTIFIED BY 'homesmart'; GRANT ALL PRIVILEGES ON homesmart.* TO 'homesmart'@'localhost';"
    ```
-2. Import the tables and starting data. This resets the devices and clears the activity log and the schedules. Run it again whenever `src/homesmart.sql` changes:
+2. Import the tables and starting data. This resets the devices and clears the activity log, the schedules and the accounts. Run it again whenever `src/homesmart.sql` changes:
    ```bash
    mysql -u root -p homesmart < src/homesmart.sql
    ```
@@ -152,6 +152,31 @@ The `schedules` table (columns in `src/homesmart.sql`) starts empty.
 Each schedule runs at most once a day, through `DeviceService`, so the usual checks apply and a schedule can never unlock the door.
 The activity log shows the command with the schedule name, for example "Turned on (schedule: Evening light)".
 Times use the server's time zone. The panel at `/panels/schedules` shows the next 3 runs.
+
+## Sign-in and remote access
+
+Every page except `/login` and `/setup` needs a signed-in account. Accounts are stored in the `users` table, and in memory in sample data mode.
+
+**First account.** While the table is empty the app logs `Setup code: <12 characters>` at start-up, and `/login` redirects to `/setup`.
+Enter that code with a username and a password of 15 to 64 characters. On Tomcat, read the code from the log file:
+```bash
+grep -o 'Setup code: [0-9A-Z]\{12\}' logs/catalina.out | tail -n 1 | cut -d' ' -f3
+```
+`mvn jetty:run` prints the line to the console.
+
+**Sessions.** A session ends after 30 minutes without activity or 8 hours after sign-in. Set the idle limit with the context-param
+`homesmart.idleMinutes` or the JVM option `-Dhomesmart.idleMinutes=5`.
+Five failed sign-ins for one username from one address lock that pair for 15 minutes.
+
+**Forms and scripts.** Every `POST` form must contain the token field, or the server answers 403:
+```jsp
+<%@ include file="/WEB-INF/views/csrf-field.jspf" %>
+```
+Pages set a Content-Security-Policy, so inline `<script>` and `style=""` attributes do not work. Put scripts in `js/` and styles in `css/`.
+
+**Remote access.** Deploy the WAR to the `webapps` folder of a Tomcat 10.1 instance, run `tailscale serve --bg 8081` (use your Tomcat port) and open `https://<machine>.<tailnet>.ts.net/homesmart/` with the trailing slash.
+`META-INF/context.xml` trusts the `X-Forwarded-*` headers only from the same machine, so `mvn jetty:run` and IDE-managed Tomcat servers, which skip that file, are for this machine only.
+Opening the Tomcat port to the local network instead is plain HTTP, so the password and the session cookie cross the network unencrypted.
 
 ## Release 2 – Frontend & Integration (Mahad)
 
