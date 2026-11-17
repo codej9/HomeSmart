@@ -100,6 +100,7 @@ PIT also excludes MySQL DAO tests so mutations cannot change database rows.
 | `job` | `DoorAlertJob` – writes the door alert to the activity log; `ScheduleJob` – runs the due schedules |
 | `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity`; `ScheduleServlet` at `/schedules`; the panels `AlertsPanelServlet` at `/panels/alerts`, `EnergyPanelServlet` at `/panels/energy` and `SchedulesPanelServlet` at `/panels/schedules`, built on `PanelServlet` |
 | `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService`, `ActivityLogDAO`, `ScheduleService` and `UserDAO`, and runs the background jobs |
+| `filter` | `SecurityHeadersFilter`, `SchemaGuardFilter`, `AuthFilter` and `CsrfFilter`, in that order (declared in `web.xml`); `RequestPaths` (path checks shared by the filters) |
 
 ## Backend contract (for the dashboard, database and activity log)
 
