@@ -19,7 +19,7 @@
     <main class="main-content">
         <div class="login-panel glass">
             <h1>Create the first account</h1>
-            <p class="login-hint">Enter the setup code from the server log. It is the line that starts with "Setup code:".</p>
+            <p class="login-hint">HomeSmart prints a 12-character setup code when it starts. Find the line that starts with "Setup code:" in the server log.</p>
             <c:if test="${not empty flashError}">
                 <div class="alert alert-error" role="alert"><c:out value="${flashError}"/></div>
             </c:if>
