@@ -58,6 +58,14 @@
         <welcome-file>index.jsp</welcome-file>
     </welcome-file-list>
 
+    <jsp-config>
+        <jsp-property-group>
+            <url-pattern>*.jsp</url-pattern>
+            <url-pattern>*.jspf</url-pattern>
+            <page-encoding>UTF-8</page-encoding>
+        </jsp-property-group>
+    </jsp-config>
+
     <!-- A friendly page instead of the server's default one, which can show Java exception details -->
     <error-page>
         <error-code>404</error-code>
