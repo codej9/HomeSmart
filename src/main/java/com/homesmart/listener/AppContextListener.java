@@ -5,14 +5,19 @@ import com.homesmart.dao.DeviceDAO;
 import com.homesmart.dao.InMemoryActivityLogDAO;
 import com.homesmart.dao.InMemoryDeviceDAO;
 import com.homesmart.dao.InMemoryScheduleDAO;
+import com.homesmart.dao.InMemoryUserDAO;
 import com.homesmart.dao.MySqlActivityLogDAO;
 import com.homesmart.dao.MySqlDeviceDAO;
 import com.homesmart.dao.MySqlScheduleDAO;
 import com.homesmart.dao.ScheduleDAO;
 import com.homesmart.job.DoorAlertJob;
 import com.homesmart.job.ScheduleJob;
+import com.homesmart.dao.MySqlUserDAO;
+import com.homesmart.dao.UserDAO;
 import com.homesmart.service.DeviceService;
 import com.homesmart.service.ScheduleService;
+import com.homesmart.service.LoginThrottle;
+import com.homesmart.service.SetupService;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
@@ -53,6 +58,13 @@ public class AppContextListener implements ServletContextListener {
     /** How long a door stays unlocked before it raises an alert, as a {@link Duration}. */
     public static final String DOOR_ALERT_THRESHOLD = "doorAlertThreshold";
 
+    public static final String USER_DAO = "userDAO";
+    public static final String SETUP_SERVICE = "setupService";
+    public static final String LOGIN_THROTTLE = "loginThrottle";
+
+    /** Set to true when MySQL is in use but the {@code users} table is missing. */
+    public static final String USERS_TABLE_MISSING = "usersTableMissing";
+
     private static final String DB_CONFIG = "db.properties";
 
     // Each can be set as a context-param in web.xml, and a JVM system property of the same name wins
@@ -74,6 +86,8 @@ public class AppContextListener implements ServletContextListener {
         context.setAttribute(DEVICE_SERVICE, new DeviceService(deviceDAO, activityLog));
         context.setAttribute(ACTIVITY_LOG, activityLog);
         context.setAttribute(TIME_FORMAT, DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a", Locale.ENGLISH));
+
+        initAccounts(context, config, deviceDAO instanceof MySqlDeviceDAO);
 
         Duration doorAlertThreshold = Duration.ofMinutes(positiveSetting(context, DOOR_ALERT_MINUTES, DEFAULT_DOOR_ALERT_MINUTES));
         context.setAttribute(DOOR_ALERT_THRESHOLD, doorAlertThreshold);
@@ -131,6 +145,35 @@ public class AppContextListener implements ServletContextListener {
         }
         log(context, "WARNING: " + name + " must be a whole number above 0, not \"" + value + "\". Using " + fallback + ".");
         return fallback;
+    }
+
+    /**
+     * Sets up accounts: MySQL when the app uses it, otherwise in memory. A missing {@code users} table
+     * is logged and flagged, and no setup code is made, because nobody could sign in.
+     */
+    private static void initAccounts(ServletContext context, Properties config, boolean useMySql) {
+        UserDAO userDAO = useMySql ? createUserDAO(context, config) : new InMemoryUserDAO();
+        context.setAttribute(USER_DAO, userDAO);
+        context.setAttribute(LOGIN_THROTTLE, new LoginThrottle(Clock.systemUTC()));
+        String setupCode = null;
+        if (!Boolean.TRUE.equals(context.getAttribute(USERS_TABLE_MISSING)) && userDAO.count() == 0) {
+            setupCode = SetupService.newCode();
+            log(context, "Setup code: " + setupCode);
+        }
+        context.setAttribute(SETUP_SERVICE, new SetupService(userDAO, setupCode));
+    }
+
+    private static UserDAO createUserDAO(ServletContext context, Properties config) {
+        MySqlUserDAO mySqlDAO = new MySqlUserDAO(
+                config.getProperty("db.url"), config.getProperty("db.user"), config.getProperty("db.password", ""));
+        try {
+            mySqlDAO.checkTable();
+        } catch (IllegalStateException e) {
+            log(context, "SEVERE: users table not available (" + e.getMessage()
+                    + "). Import src/homesmart.sql to create it. Sign-in is disabled until then.");
+            context.setAttribute(USERS_TABLE_MISSING, true);
+        }
+        return mySqlDAO;
     }
 
     /**

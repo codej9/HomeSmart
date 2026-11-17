@@ -94,12 +94,12 @@ PIT also excludes MySQL DAO tests so mutations cannot change database rows.
 
 | Package | Purpose |
 |---|---|
-| `model` | `Device` base class and `Light`, `Thermostat`, `DoorLock`; `DeviceType` (kinds of device); `ActivityEntry`, `ActivityType`, `ActivitySource` and `Provenance` for the activity log; `Schedule` and `UpcomingRun` |
-| `dao` | `DeviceDAO` storage interface; `MySqlDeviceDAO` (MySQL `devices` table) and `InMemoryDeviceDAO` (sample data fallback). `MySqlConnector` (shared JDBC connection). `ActivityLogDAO` storage interface; `MySqlActivityLogDAO` (MySQL `activity_log` table) and `InMemoryActivityLogDAO` (fallback). `ScheduleDAO`; `MySqlScheduleDAO` (MySQL `schedules` table) and `InMemoryScheduleDAO` (sample data mode) |
-| `service` | `DeviceService` – all device control logic and validation; `CommandResult` (one command's outcome); `SecurityAlerts` (door alert rule); `EnergyEstimator` (energy estimate from the log); `ScheduleService` (create schedules, find the ones that are due) |
+| `model` | `Device` base class and `Light`, `Thermostat`, `DoorLock`; `DeviceType` (kinds of device); `ActivityEntry`, `ActivityType`, `ActivitySource` and `Provenance` for the activity log; `Schedule` and `UpcomingRun`; `User` |
+| `dao` | `DeviceDAO` storage interface; `MySqlDeviceDAO` (MySQL `devices` table) and `InMemoryDeviceDAO` (sample data fallback). `MySqlConnector` (shared JDBC connection). `ActivityLogDAO` storage interface; `MySqlActivityLogDAO` (MySQL `activity_log` table) and `InMemoryActivityLogDAO` (fallback). `ScheduleDAO`; `MySqlScheduleDAO` (MySQL `schedules` table) and `InMemoryScheduleDAO` (sample data mode). `UserDAO`; `MySqlUserDAO` (MySQL `users` table) and `InMemoryUserDAO` (sample data mode) |
+| `service` | `DeviceService` – all device control logic and validation; `CommandResult` (one command's outcome); `SecurityAlerts` (door alert rule); `EnergyEstimator` (energy estimate from the log); `ScheduleService` (create schedules, find the ones that are due); `PasswordHasher`, `LoginThrottle` and `SetupService` (accounts and sign-in) |
 | `job` | `DoorAlertJob` – writes the door alert to the activity log; `ScheduleJob` – runs the due schedules |
 | `servlet` | `DeviceServlet` at `/devices`; `ActivityServlet` at `/activity`; `ScheduleServlet` at `/schedules`; the panels `AlertsPanelServlet` at `/panels/alerts`, `EnergyPanelServlet` at `/panels/energy` and `SchedulesPanelServlet` at `/panels/schedules`, built on `PanelServlet` |
-| `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService`, `ActivityLogDAO` and `ScheduleService`, and runs the background jobs |
+| `listener` | `AppContextListener` – reads `db.properties`, picks MySQL or sample data, creates the shared `DeviceService`, `ActivityLogDAO`, `ScheduleService` and `UserDAO`, and runs the background jobs |
 
 ## Backend contract (for the dashboard, database and activity log)
 
