@@ -88,11 +88,11 @@
                                 <c:forEach var="schedule" items="${schedules}">
                                     <tr>
                                         <th scope="row"><c:out value="${schedule.name()}"/><c:if test="${not schedule.enabled()}"> <span class="hs-schedules-note">(off)</span></c:if></th>
-                                        <td><c:out value="${deviceNames[schedule.deviceId()]}"/></td>
-                                        <td><c:out value="${schedule.actionText()}"/></td>
-                                        <td><c:out value="${schedule.runAt()}"/></td>
-                                        <td><c:out value="${schedule.daysText()}"/></td>
-                                        <td>
+                                        <td data-label="Device"><c:out value="${deviceNames[schedule.deviceId()]}"/></td>
+                                        <td data-label="Action"><c:out value="${schedule.actionText()}"/></td>
+                                        <td data-label="Time"><c:out value="${schedule.runAt()}"/></td>
+                                        <td data-label="Days"><c:out value="${schedule.daysText()}"/></td>
+                                        <td data-label="Last run">
                                             <c:choose>
                                                 <c:when test="${empty schedule.lastResult()}">Not run yet</c:when>
                                                 <c:otherwise><c:out value="${schedule.lastRunOn()}"/>: <c:out value="${schedule.lastResult()}"/></c:otherwise>
