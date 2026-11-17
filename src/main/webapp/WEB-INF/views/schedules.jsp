@@ -113,13 +113,7 @@
                 </section>
             </c:otherwise>
         </c:choose>
-        <div class="section-heading page-heading">
-            <span class="section-note">Signed in as <c:out value="${sessionScope.username}"/></span>
-            <form method="post" action="${pageContext.request.contextPath}/logout">
-                <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
-                <button class="small-button" type="submit">Log out</button>
-            </form>
-        </div>
+        <jsp:include page="/panels/account"/>
     </main>
     <%@ include file="/WEB-INF/views/footer.jspf" %>
 </div>
