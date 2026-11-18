@@ -12,7 +12,7 @@ const LIGHT_ID = '1';
 const toggles = new Counter('toggles');
 const LOGIN = { tags: { phase: 'login' } };
 function work() {
-  return { tags: { phase: 'work' }, cookies: { JSESSIONID: session } };
+  return { tags: { phase: 'work' } };
 }
 
 if (!PASSWORD) {
@@ -22,6 +22,7 @@ if (!PASSWORD) {
 export const options = {
   vus: 20,
   duration: '60s',
+  noCookiesReset: true,
   thresholds: {
     'http_req_failed{phase:work}': ['rate<0.01'],
     'http_req_duration{phase:work}': ['p(95)<500'],
@@ -30,9 +31,7 @@ export const options = {
   },
 };
 
-// Each VU runs its own module instance. k6 clears the cookie jar between iterations,
-// so the session id is kept here and sent with each request.
-let session = null;
+// Keep the cookie jar across iterations, so each VU signs in once.
 let token = null;
 
 function csrfOf(res) {
@@ -45,7 +44,6 @@ function signIn() {
     { username: USER, password: PASSWORD, _csrf: csrfOf(page) }, LOGIN);
   check(res, { 'signed in': (r) => r.status === 200 && !r.url.endsWith('/login') });
   token = csrfOf(res);
-  session = (http.cookieJar().cookiesForURL(`${BASE}/devices`).JSESSIONID || [])[0];
 }
 
 function expectPage(res, marker) {
@@ -77,7 +75,7 @@ function energy() {
 }
 
 export default function () {
-  if (!session) {
+  if (!token) {
     signIn();
   }
   const roll = Math.random();
