@@ -67,6 +67,7 @@
                 <c:out value="${flashError}"/>
             </div>
         </c:if>
+        <jsp:include page="/panels/alerts"/>
 
         <div class="section-heading">
             <div>
@@ -200,6 +201,8 @@
                 </article>
             </c:forEach>
         </div>
+        <jsp:include page="/panels/energy"/>
+        <jsp:include page="/panels/schedules"/>
 
         <div class="section-heading">
             <div>
@@ -216,6 +219,7 @@
         <div class="activity-panel glass">
             <%@ include file="activity-table.jspf" %>
         </div>
+        <jsp:include page="/panels/account"/>
     </main>
 
     <footer class="footer">HomeSmart · TechNest Solutions</footer>
