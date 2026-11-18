@@ -49,7 +49,10 @@ abstract class E2EBase {
             if (!setupDriver.getCurrentUrl().endsWith("/setup")) {
                 return;
             }
-            setupDriver.findElement(By.name("code")).sendKeys(SETUP_CODE);
+            // The setup form has no code field on a local request.
+            for (WebElement code : setupDriver.findElements(By.name("code"))) {
+                code.sendKeys(SETUP_CODE);
+            }
             setupDriver.findElement(By.name("username")).sendKeys(USER);
             setupDriver.findElement(By.name("password")).sendKeys(PASSWORD);
             submitFormOf(setupDriver.findElement(By.name("password")));
