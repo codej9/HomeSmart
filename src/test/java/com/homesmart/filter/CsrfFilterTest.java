@@ -98,10 +98,11 @@ class CsrfFilterTest {
     }
 
     @Test
-    void dashboardPostIsSkipped() throws Exception {
+    void dashboardPostNeedsTheToken() throws Exception {
         run("POST", "/devices", null);
 
-        assertTrue(chain.called);
+        assertEquals(403, response.status);
+        assertFalse(chain.called);
     }
 
     @Test

@@ -47,9 +47,7 @@ public class CsrfFilter implements Filter {
             token = newToken();
             session.setAttribute(TOKEN, token);
         }
-        // The dashboard forms post here without the field until they carry it
-        boolean exempt = SAFE_METHODS.contains(http.getMethod()) || path.equals("/devices");
-        if (exempt || matches(token, http.getParameter(FIELD))) {
+        if (SAFE_METHODS.contains(http.getMethod()) || matches(token, http.getParameter(FIELD))) {
             chain.doFilter(request, response);
         } else if (RequestPaths.isLoginOrSetup(path)) {
             session.setAttribute("flashError", EXPIRED);

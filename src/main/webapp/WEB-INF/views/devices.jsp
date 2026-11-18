@@ -4,7 +4,8 @@
   The styled dashboard (frontend) can replace this file: the servlet provides
   ${devices}, ${activity}, ${flashMessage}, ${flashError} and ${applicationScope.usingSampleData},
   and each form posts
-  deviceId + action (+ value for "set") to /devices. The thermostat's Eco button posts action "eco".
+  deviceId + action (+ value for "set") to /devices, with the _csrf field from csrf-field.jspf.
+  The thermostat's Eco button posts action "eco".
 --%>
 
 <%@ page contentType="text/html;charset=UTF-8" %>
@@ -118,6 +119,7 @@
 
                             <c:when test="${device.type == 'LIGHT'}">
                                 <form method="post" action="${pageContext.request.contextPath}/devices">
+                                    <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                     <input type="hidden" name="deviceId" value="${device.id}">
                                     <button class="action-button" type="submit"
                                             name="action" value="${device.on ? 'off' : 'on'}">
@@ -132,6 +134,7 @@
                                 <div class="temp-caption">Current setpoint</div>
                                 <div class="temp-adjust">
                                     <form method="post" action="${pageContext.request.contextPath}/devices">
+                                        <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                         <input type="hidden" name="deviceId" value="${device.id}">
                                         <button class="square-button" type="submit"
                                                 name="action" value="decrease"
@@ -143,6 +146,7 @@
                                     </span>
 
                                     <form method="post" action="${pageContext.request.contextPath}/devices">
+                                        <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                         <input type="hidden" name="deviceId" value="${device.id}">
                                         <button class="square-button" type="submit"
                                                 name="action" value="increase"
@@ -152,6 +156,7 @@
 
                                 <form class="target-form" method="post"
                                       action="${pageContext.request.contextPath}/devices">
+                                    <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                     <input type="hidden" name="deviceId" value="${device.id}">
                                     <label for="target-${device.id}">Target temperature</label>
                                     <div class="target-row">
@@ -169,6 +174,7 @@
                                 <%-- Eco preset --%>
                                 <form class="eco-form" method="post"
                                       action="${pageContext.request.contextPath}/devices">
+                                    <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                     <input type="hidden" name="deviceId" value="${device.id}">
                                     <button class="eco-button ${device.ecoMode ? 'is-active' : ''}"
                                             type="submit" name="action" value="eco"
@@ -186,6 +192,7 @@
 
                             <c:when test="${device.type == 'DOOR_LOCK'}">
                                 <form method="post" action="${pageContext.request.contextPath}/devices">
+                                    <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                     <input type="hidden" name="deviceId" value="${device.id}">
                                     <button class="action-button" type="submit"
                                             name="action" value="${device.locked ? 'unlock' : 'lock'}">
