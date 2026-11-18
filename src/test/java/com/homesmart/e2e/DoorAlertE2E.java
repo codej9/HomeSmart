@@ -3,6 +3,7 @@ package com.homesmart.e2e;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.StaleElementReferenceException;
+import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
@@ -23,7 +24,7 @@ final class DoorAlertE2E extends E2EBase {
         setDoorLocked(true);
         setDoorLocked(false);
 
-        new WebDriverWait(driver, ALERT_WAIT).ignoring(StaleElementReferenceException.class)
+        new WebDriverWait(driver, ALERT_WAIT).ignoring(StaleElementReferenceException.class, WebDriverException.class)
                 .pollingEvery(Duration.ofSeconds(5))
                 .until(d -> d.findElement(By.cssSelector(ALERTS)).getText().contains("has been unlocked for"));
         snapshot("door-alert");

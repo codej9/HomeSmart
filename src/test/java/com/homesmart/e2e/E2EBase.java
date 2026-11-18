@@ -9,6 +9,7 @@ import org.openqa.selenium.OutputType;
 import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -65,8 +66,8 @@ abstract class E2EBase {
     @BeforeEach
     void startBrowser() {
         driver = newDriver();
-        // Waits retry stale elements: panels re-render during the test.
-        wait = new WebDriverWait(driver, WAIT).ignoring(StaleElementReferenceException.class);
+        // Panels re-render mid-test; chromedriver reports detached nodes as unknown errors.
+        wait = new WebDriverWait(driver, WAIT).ignoring(StaleElementReferenceException.class, WebDriverException.class);
     }
 
     @AfterEach
