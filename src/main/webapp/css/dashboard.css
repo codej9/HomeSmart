@@ -284,6 +284,44 @@ body {
     cursor: pointer;
 }
 
+/* Eco preset button on the thermostat card (Release 2) */
+.card-controls .eco-form {
+    margin-top: 12px;
+}
+
+.eco-button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid rgba(140, 226, 164, .45);
+    border-radius: 9px;
+    background: rgba(140, 226, 164, .08);
+    color: #d9f5e2;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 14px;
+    cursor: pointer;
+}
+
+.eco-button:hover {
+    background: rgba(140, 226, 164, .18);
+}
+
+.eco-button.is-active {
+    background: rgba(140, 226, 164, .2);
+    border-color: rgba(140, 226, 164, .7);
+    color: #ffffff;
+    cursor: default;
+}
+
+.eco-leaf {
+    font-size: 17px;
+    line-height: 1;
+}
+
 .alert {
     border-radius: 10px;
     padding: 14px 17px;

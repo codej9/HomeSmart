@@ -6,6 +6,7 @@ import com.homesmart.model.DoorLock;
 import com.homesmart.model.Light;
 import com.homesmart.model.Thermostat;
 
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -16,6 +17,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 /**
  * Stores device state in the MySQL {@code devices} table (see homesmart.sql).
@@ -24,6 +26,8 @@ import java.util.Optional;
  * {@code temperature} for thermostats and {@code locked} for door locks.
  */
 public class MySqlDeviceDAO implements DeviceDAO {
+
+    private static final Logger LOG = Logger.getLogger(MySqlDeviceDAO.class.getName());
 
     private static final String SELECT_DEVICES =
             "SELECT device_id, device_name, device_type, power_on, temperature, locked FROM devices";
@@ -121,11 +125,34 @@ public class MySqlDeviceDAO implements DeviceDAO {
         DeviceType type = DeviceType.valueOf(row.getString("device_type"));
         return switch (type) {
             case LIGHT -> new Light(id, name, row.getBoolean("power_on"));
-            // The column is DECIMAL(4,1); the app works in whole degrees, so round it
-            case THERMOSTAT -> new Thermostat(id, name,
-                    row.getBigDecimal("temperature").setScale(0, RoundingMode.HALF_UP).intValue());
+            case THERMOSTAT -> new Thermostat(id, name, storedTemperature(row, name));
             case DOOR_LOCK -> new DoorLock(id, name, row.getBoolean("locked"));
         };
+    }
+
+    /**
+     * Reads a thermostat's saved temperature as a whole degree inside the allowed range.
+     *
+     * <p>The column is DECIMAL(4,1) and the database does not enforce the 10–32 °C range, so a row
+     * edited by hand can hold any value or none. Before Release 2 such a row made every dashboard
+     * page fail with HTTP 500. Now an empty value falls back to the Eco temperature and an
+     * out-of-range value is moved to the nearest limit; both are logged so the row can be fixed.
+     * The next temperature change saves a valid value again.
+     */
+    private static int storedTemperature(ResultSet row, String name) throws SQLException {
+        BigDecimal stored = row.getBigDecimal("temperature");
+        if (stored == null) {
+            LOG.warning(name + " has no saved temperature; using " + Thermostat.ECO_TEMPERATURE + " °C");
+            return Thermostat.ECO_TEMPERATURE;
+        }
+        // The app works in whole degrees, so round 21.5 to 22
+        int whole = stored.setScale(0, RoundingMode.HALF_UP).intValue();
+        int safe = Math.max(Thermostat.MIN_TEMPERATURE, Math.min(Thermostat.MAX_TEMPERATURE, whole));
+        if (safe != whole) {
+            LOG.warning(name + " has an out-of-range saved temperature (" + stored.toPlainString()
+                    + " °C); using " + safe + " °C");
+        }
+        return safe;
     }
 
     private IllegalStateException databaseError(SQLException e) {
