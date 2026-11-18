@@ -21,20 +21,24 @@ flash_message() {
     grep -oE '<div class="alert alert-(success|error)"[^>]*>[^<]*' <<<"$1" | sed -E 's/<[^>]*>//' | head -1
 }
 
-# Signs in with HS_USER and HS_PASSWORD and keeps the session cookie in the jar
+# The _csrf form field value of a page
+csrf_token() {
+    curl -s -c "$JAR" -b "$JAR" "$1" | sed -nE 's/.*name="_csrf" value="([^"]*)".*/\1/p' | head -1
+}
+
+# Signs in with HS_USER and HS_PASSWORD, keeps the session cookie in the jar and reads the dashboard's token
 sign_in() {
-    local token
-    token=$(curl -s -c "$JAR" -b "$JAR" "$BASE/login" | sed -nE 's/.*name="_csrf" value="([^"]*)".*/\1/p' | head -1)
-    curl -s -o /dev/null -c "$JAR" -b "$JAR" --data-urlencode "_csrf=$token" \
+    curl -s -o /dev/null -c "$JAR" -b "$JAR" --data-urlencode "_csrf=$(csrf_token "$BASE/login")" \
         --data-urlencode "username=$HS_USER" --data-urlencode "password=$HS_PASSWORD" "$BASE/login"
-    [ "$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE/devices")" = 200 ]
+    CSRF=$(csrf_token "$BASE/devices")
+    [ -n "$CSRF" ]
 }
 
 # check <label> <expected message text> <deviceId> <action> [value]
 check() {
     local label="$1" expected="$2" id="$3" action="$4"
     local args=(-s -o /dev/null -w '%{http_code}' -c "$JAR" -b "$JAR"
-        --data-urlencode "deviceId=$id" --data-urlencode "action=$action")
+        --data-urlencode "_csrf=$CSRF" --data-urlencode "deviceId=$id" --data-urlencode "action=$action")
     [ $# -ge 5 ] && args+=(--data-urlencode "value=$5")
 
     local post page get msg
