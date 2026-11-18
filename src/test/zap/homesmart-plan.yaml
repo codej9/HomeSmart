@@ -1,5 +1,5 @@
 # Run against the evidence instance on port 8083 with HS_EVIDENCE_PASSWORD exported:
-#   zap.sh -cmd -autorun src/test/zap/homesmart-plan.yaml
+#   mkdir -p target/zap && HS_ZAP_REPORT_DIR="$PWD/target/zap" zap -cmd -autorun "$PWD/src/test/zap/homesmart-plan.yaml"
 env:
   contexts:
     - name: homesmart
@@ -50,12 +50,12 @@ jobs:
   - type: report
     parameters:
       template: traditional-html
-      reportDir: target/zap
+      reportDir: ${HS_ZAP_REPORT_DIR}
       reportFile: homesmart-zap
       reportTitle: HomeSmart evidence scan
   - type: report
     parameters:
       template: traditional-json
-      reportDir: target/zap
+      reportDir: ${HS_ZAP_REPORT_DIR}
       reportFile: homesmart-zap
       reportTitle: HomeSmart evidence scan
