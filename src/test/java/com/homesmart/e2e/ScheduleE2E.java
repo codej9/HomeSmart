@@ -35,8 +35,8 @@ final class ScheduleE2E extends E2EBase {
     }
 
     private void removeSchedule(String name) {
-        WebElement row = driver.findElement(By.xpath(
-                "//*[text()[contains(., '" + name + "')]]/ancestor::*[.//*[@name='op' and @value='delete']][1]"));
-        submitFormOf(row.findElement(By.cssSelector("[name='op'][value='delete']")));
+        // submitFormOf would submit the row's first button, Turn off.
+        String xpath = "//tr[th[contains(., '" + name + "')]]//button[@name='op' and @value='delete']";
+        driver.findElement(By.xpath(xpath)).click();
     }
 }

@@ -6,11 +6,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.OutputType;
+import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.FluentWait;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.IOException;
@@ -34,7 +36,7 @@ abstract class E2EBase {
     private static final Duration WAIT = Duration.ofSeconds(10);
 
     protected WebDriver driver;
-    protected WebDriverWait wait;
+    protected FluentWait<WebDriver> wait;
 
     @BeforeAll
     static void createFirstAccount() {
@@ -60,7 +62,8 @@ abstract class E2EBase {
     @BeforeEach
     void startBrowser() {
         driver = newDriver();
-        wait = new WebDriverWait(driver, WAIT);
+        // Waits retry stale elements: panels re-render during the test.
+        wait = new WebDriverWait(driver, WAIT).ignoring(StaleElementReferenceException.class);
     }
 
     @AfterEach

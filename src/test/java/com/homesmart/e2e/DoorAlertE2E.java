@@ -2,6 +2,7 @@ package com.homesmart.e2e;
 
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
+import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
@@ -22,7 +23,8 @@ final class DoorAlertE2E extends E2EBase {
         setDoorLocked(true);
         setDoorLocked(false);
 
-        new WebDriverWait(driver, ALERT_WAIT).pollingEvery(Duration.ofSeconds(5))
+        new WebDriverWait(driver, ALERT_WAIT).ignoring(StaleElementReferenceException.class)
+                .pollingEvery(Duration.ofSeconds(5))
                 .until(d -> d.findElement(By.cssSelector(ALERTS)).getText().contains("has been unlocked for"));
         snapshot("door-alert");
 
@@ -34,9 +36,17 @@ final class DoorAlertE2E extends E2EBase {
     private void setDoorLocked(boolean locked) {
         String action = locked ? "Lock door" : "Unlock door";
         String result = locked ? "Unlock door" : "Lock door";
-        if (find(DOOR_BUTTON).getText().contains(action)) {
-            find(DOOR_BUTTON).click();
-        }
-        wait.until(d -> d.findElement(By.cssSelector(DOOR_BUTTON)).getText().contains(result));
+        boolean[] clicked = {false};
+        wait.until(d -> {
+            String label = d.findElement(By.cssSelector(DOOR_BUTTON)).getText();
+            if (label.contains(result)) {
+                return true;
+            }
+            if (label.contains(action) && !clicked[0]) {
+                d.findElement(By.cssSelector(DOOR_BUTTON)).click();
+                clicked[0] = true;
+            }
+            return false;
+        });
     }
 }
