@@ -51,6 +51,20 @@
             <version>5.14.4</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- Browser and accessibility checks; run through the e2e profile -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>4.53.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.deque.html.axe-core</groupId>
+            <artifactId>selenium</artifactId>
+            <version>4.14.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -118,6 +132,7 @@
                     </excludedClasses>
                     <excludedTestClasses>
                         <param>com.homesmart.dao.MySql*Test</param>
+                        <param>com.homesmart.e2e.*</param>
                     </excludedTestClasses>
                 </configuration>
                 <dependencies>
@@ -130,4 +145,25 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- mvn -Pe2e runs the browser tests against -De2e.baseUrl -->
+        <profile>
+            <id>e2e</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>3.6.1</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*E2E.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
