@@ -1,5 +1,5 @@
-# Run against the evidence instance on port 8083 with HS_EVIDENCE_PASSWORD exported:
-#   mkdir -p target/zap && HS_ZAP_REPORT_DIR="$PWD/target/zap" zap -cmd -autorun "$PWD/src/test/zap/homesmart-plan.yaml"
+# Run through src/test/zap/run-zap.sh with HS_EVIDENCE_PASSWORD and HS_ZAP_REPORT_DIR exported.
+# The script fills the ${HS_ZAP_SESSION} placeholder in a copy of this plan.
 env:
   contexts:
     - name: homesmart
@@ -14,6 +14,7 @@ env:
         parameters:
           loginPageUrl: http://127.0.0.1:8083/homesmart/login
           loginRequestUrl: http://127.0.0.1:8083/homesmart/login
+          # shortcut: the form login fails on the session-bound CSRF token; the replacer job carries the session.
           loginRequestBody: username={%username%}&password={%password%}
         verification:
           method: response
@@ -31,6 +32,13 @@ env:
     progressToStdout: true
 jobs:
   - type: passiveScan-config
+  # Sends the signed-in session cookie on every request.
+  - type: replacer
+    rules:
+      - description: signed-in session cookie
+        matchType: req_header
+        matchString: Cookie
+        replacementString: JSESSIONID=${HS_ZAP_SESSION}
   - type: spider
     parameters:
       context: homesmart
@@ -49,13 +57,13 @@ jobs:
       maxScanDurationInMins: 30
   - type: report
     parameters:
-      template: traditional-html
+      template: traditional-html-plus
       reportDir: ${HS_ZAP_REPORT_DIR}
       reportFile: homesmart-zap
       reportTitle: HomeSmart evidence scan
   - type: report
     parameters:
-      template: traditional-json
+      template: traditional-json-plus
       reportDir: ${HS_ZAP_REPORT_DIR}
       reportFile: homesmart-zap
       reportTitle: HomeSmart evidence scan
