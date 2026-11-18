@@ -18,7 +18,7 @@ final class RequestPaths {
     }
 
     static boolean isAsset(String path) {
-        return path.startsWith("/css/") || path.startsWith("/js/");
+        return path.startsWith("/css/") || path.startsWith("/js/") || path.startsWith("/icons/");
     }
 
     static boolean isLoginOrSetup(String path) {

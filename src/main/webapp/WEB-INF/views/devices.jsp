@@ -22,25 +22,7 @@
 <body>
 <div class="dashboard-shell">
 
-    <header class="topbar glass">
-        <div class="brand">
-            <span class="brand-mark" aria-hidden="true">
-                <img src="${pageContext.request.contextPath}/icons/house-duotone.svg" alt="">
-            </span>
-            <span>Home<span class="brand-accent">Smart</span></span>
-        </div>
-
-        <div class="theme-controls">
-            <span class="topbar-label">HOME CONTROL / RELEASE 2</span>
-            <button type="button" id="theme-toggle" class="theme-toggle"
-                    aria-label="Switch to light mode" aria-pressed="false">
-                <img id="theme-icon"
-                     src="${pageContext.request.contextPath}/icons/sun-duotone.svg"
-                     alt="">
-                <span id="theme-label">Light mode</span>
-            </button>
-        </div>
-    </header>
+    <%@ include file="/WEB-INF/views/topbar.jspf" %>
 
     <main class="main-content">
         <div class="hero">
@@ -229,10 +211,7 @@
         <jsp:include page="/panels/account"/>
     </main>
 
-    <footer class="footer">HomeSmart · TechNest Solutions</footer>
+    <%@ include file="/WEB-INF/views/footer.jspf" %>
 </div>
-
-<script src="${pageContext.request.contextPath}/js/theme.js" defer></script>
-
 </body>
 </html>
