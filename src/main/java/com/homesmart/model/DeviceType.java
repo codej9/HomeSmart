@@ -1,7 +1,7 @@
 package com.homesmart.model;
 
 /**
- * The kinds of device HomeSmart supports in Release 1.
+ * The kinds of device HomeSmart supports.
  */
 public enum DeviceType {
     LIGHT,

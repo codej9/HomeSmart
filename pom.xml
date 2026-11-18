@@ -6,11 +6,11 @@
 
     <groupId>com.homesmart</groupId>
     <artifactId>homesmart</artifactId>
-    <version>0.1.0-release1</version>
+    <version>1.0.0</version>
     <packaging>war</packaging>
 
     <name>HomeSmart</name>
-    <description>HomeSmart smart-home control application (CST8515 Release 1)</description>
+    <description>HomeSmart smart-home control application (CST8515)</description>
 
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
