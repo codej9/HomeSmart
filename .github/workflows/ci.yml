@@ -103,6 +103,9 @@ jobs:
   e2e:
     needs: build
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DB_PORT: 3399
     services:
       mysql:
         image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
@@ -111,18 +114,21 @@ jobs:
           MYSQL_DATABASE: homesmart
           MYSQL_USER: homesmart
           MYSQL_PASSWORD: homesmart
+        # Keep equal to DB_PORT (the env context is not available here).
         ports:
-          - '3306'
+          - '3399:3306'
         options: >-
           --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: 17
@@ -138,30 +144,24 @@ jobs:
               || $SUDO apt-get install -y -qq mariadb-client
           fi
 
-      - name: Resolve MySQL host
-        id: db
-        env:
-          DB_PORT: ${{ job.services.mysql.ports['3306'] }}
+      - name: Wait for MySQL
         run: |
-          if mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" -u homesmart -phomesmart -e 'SELECT 1' >/dev/null 2>&1; then
-            echo "host=127.0.0.1" >> "$GITHUB_OUTPUT"
-            echo "port=$DB_PORT" >> "$GITHUB_OUTPUT"
-          elif mysql --protocol=tcp -h mysql -P 3306 -u homesmart -phomesmart -e 'SELECT 1' >/dev/null 2>&1; then
-            echo "host=mysql" >> "$GITHUB_OUTPUT"
-            echo "port=3306" >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::cannot reach MySQL service on 127.0.0.1 or mysql"
-            exit 1
-          fi
+          for _ in $(seq 1 30); do
+            mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" \
+              -u homesmart -phomesmart -e 'SELECT 1' >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "::error::MySQL did not become ready on 127.0.0.1:$DB_PORT"
+          exit 1
 
       - name: Import schema
         run: |
-          mysql --protocol=tcp -h "${{ steps.db.outputs.host }}" -P "${{ steps.db.outputs.port }}" \
+          mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" \
             -u homesmart -phomesmart homesmart < src/homesmart.sql
 
       - name: Create db.properties
         run: |
-          sed "s|localhost:3306|${{ steps.db.outputs.host }}:${{ steps.db.outputs.port }}|" \
+          sed "s|localhost:3306|127.0.0.1:$DB_PORT|" \
             src/main/resources/db.properties.example > src/main/resources/db.properties
 
       - name: Compile test classes
@@ -169,13 +169,14 @@ jobs:
 
       - name: Start the app
         run: |
-          nohup ./mvnw -B jetty:run -Dhomesmart.doorAlertMinutes=1 -Dhomesmart.jobDelaySeconds=5 \
+          nohup ./mvnw -B jetty:run -Djetty.http.port=8099 \
+            -Dhomesmart.doorAlertMinutes=1 -Dhomesmart.jobDelaySeconds=5 \
             > jetty.log 2>&1 &
 
       - name: Wait for the app
         run: |
-          for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/homesmart/login || true)
+          for _ in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8099/homesmart/login || true)
             if [ "$code" = 200 ] || [ "$code" = 302 ]; then exit 0; fi
             sleep 2
           done
@@ -195,7 +196,7 @@ jobs:
 
       - name: Set up Chrome
         id: chrome
-        uses: browser-actions/setup-chrome@v2
+        uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2
         with:
           install-chromedriver: true
           install-dependencies: true
@@ -203,7 +204,7 @@ jobs:
       - name: Run end-to-end tests
         run: |
           ./mvnw -B -Pe2e surefire:test \
-            -De2e.baseUrl=http://localhost:8080/homesmart \
+            -De2e.baseUrl=http://localhost:8099/homesmart \
             -De2e.user=e2e.tester \
             -De2e.password="$E2E_PASSWORD" \
             -De2e.setupCode="$E2E_SETUP_CODE" \
@@ -213,7 +214,7 @@ jobs:
 
       - name: Upload jetty log and screenshots
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: e2e-artifacts
           path: |
