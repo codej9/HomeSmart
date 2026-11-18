@@ -11,7 +11,9 @@ const PASSWORD = __ENV.HS_EVIDENCE_PASSWORD;
 const LIGHT_ID = '1';
 const toggles = new Counter('toggles');
 const LOGIN = { tags: { phase: 'login' } };
-const WORK = { tags: { phase: 'work' } };
+function work() {
+  return { tags: { phase: 'work' }, cookies: { JSESSIONID: session } };
+}
 
 if (!PASSWORD) {
   throw new Error('Set HS_EVIDENCE_PASSWORD');
@@ -28,7 +30,9 @@ export const options = {
   },
 };
 
-// Each VU runs its own module instance, so `token` is per VU.
+// Each VU runs its own module instance. k6 clears the cookie jar between iterations,
+// so the session id is kept here and sent with each request.
+let session = null;
 let token = null;
 
 function csrfOf(res) {
@@ -41,6 +45,7 @@ function signIn() {
     { username: USER, password: PASSWORD, _csrf: csrfOf(page) }, LOGIN);
   check(res, { 'signed in': (r) => r.status === 200 && !r.url.endsWith('/login') });
   token = csrfOf(res);
+  session = (http.cookieJar().cookiesForURL(`${BASE}/devices`).JSESSIONID || [])[0];
 }
 
 function expectPage(res, marker) {
@@ -52,27 +57,27 @@ function expectPage(res, marker) {
 }
 
 function devices() {
-  expectPage(http.get(`${BASE}/devices`, WORK), 'Current setpoint');
+  expectPage(http.get(`${BASE}/devices`, work()), 'Current setpoint');
 }
 
 function toggleLight() {
   const res = http.post(`${BASE}/devices`,
-    { deviceId: LIGHT_ID, action: 'toggle', _csrf: token }, WORK);
+    { deviceId: LIGHT_ID, action: 'toggle', _csrf: token }, work());
   if (expectPage(res, 'Current setpoint')) {
     toggles.add(1);
   }
 }
 
 function activity() {
-  expectPage(http.get(`${BASE}/activity`, WORK), 'Activity log');
+  expectPage(http.get(`${BASE}/activity`, work()), 'Activity log');
 }
 
 function energy() {
-  expectPage(http.get(`${BASE}/panels/energy`, WORK), 'Estimated energy use');
+  expectPage(http.get(`${BASE}/panels/energy`, work()), 'Estimated energy use');
 }
 
 export default function () {
-  if (!token) {
+  if (!session) {
     signIn();
   }
   const roll = Math.random();
