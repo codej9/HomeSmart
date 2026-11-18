@@ -99,3 +99,128 @@ jobs:
           name: jacoco-report-jdk${{ matrix.java }}
           path: target/site/jacoco/
           if-no-files-found: error
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: homesmart
+          MYSQL_USER: homesmart
+          MYSQL_PASSWORD: homesmart
+        ports:
+          - '3306'
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Install MySQL client if missing
+        run: |
+          if ! command -v mysql >/dev/null; then
+            SUDO=""; command -v sudo >/dev/null && SUDO="sudo"
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y -qq mysql-client \
+              || $SUDO apt-get install -y -qq mysql-client-8.0 \
+              || $SUDO apt-get install -y -qq mariadb-client
+          fi
+
+      - name: Resolve MySQL host
+        id: db
+        env:
+          DB_PORT: ${{ job.services.mysql.ports['3306'] }}
+        run: |
+          if mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" -u homesmart -phomesmart -e 'SELECT 1' >/dev/null 2>&1; then
+            echo "host=127.0.0.1" >> "$GITHUB_OUTPUT"
+            echo "port=$DB_PORT" >> "$GITHUB_OUTPUT"
+          elif mysql --protocol=tcp -h mysql -P 3306 -u homesmart -phomesmart -e 'SELECT 1' >/dev/null 2>&1; then
+            echo "host=mysql" >> "$GITHUB_OUTPUT"
+            echo "port=3306" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::cannot reach MySQL service on 127.0.0.1 or mysql"
+            exit 1
+          fi
+
+      - name: Import schema
+        run: |
+          mysql --protocol=tcp -h "${{ steps.db.outputs.host }}" -P "${{ steps.db.outputs.port }}" \
+            -u homesmart -phomesmart homesmart < src/homesmart.sql
+
+      - name: Create db.properties
+        run: |
+          sed "s|localhost:3306|${{ steps.db.outputs.host }}:${{ steps.db.outputs.port }}|" \
+            src/main/resources/db.properties.example > src/main/resources/db.properties
+
+      - name: Compile test classes
+        run: ./mvnw -B -q test-compile
+
+      - name: Start the app
+        run: |
+          nohup ./mvnw -B jetty:run -Dhomesmart.doorAlertMinutes=1 -Dhomesmart.jobDelaySeconds=5 \
+            > jetty.log 2>&1 &
+
+      - name: Wait for the app
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/homesmart/login || true)
+            if [ "$code" = 200 ] || [ "$code" = 302 ]; then exit 0; fi
+            sleep 2
+          done
+          echo "::error::the app did not answer within 120 seconds"
+          tail -n 100 jetty.log
+          exit 1
+
+      - name: Create the e2e credentials
+        run: |
+          code=$(grep -o 'Setup code: [0-9A-Z]\{12\}' jetty.log | tail -n 1 | cut -d' ' -f3)
+          test -n "$code" || { echo "::error::no setup code in jetty.log"; exit 1; }
+          password=$(openssl rand -base64 24)
+          echo "::add-mask::$code"
+          echo "::add-mask::$password"
+          echo "E2E_SETUP_CODE=$code" >> "$GITHUB_ENV"
+          echo "E2E_PASSWORD=$password" >> "$GITHUB_ENV"
+
+      - name: Set up Chrome
+        id: chrome
+        uses: browser-actions/setup-chrome@v2
+        with:
+          install-chromedriver: true
+          install-dependencies: true
+
+      - name: Run end-to-end tests
+        run: |
+          ./mvnw -B -Pe2e surefire:test \
+            -De2e.baseUrl=http://localhost:8080/homesmart \
+            -De2e.user=e2e.tester \
+            -De2e.password="$E2E_PASSWORD" \
+            -De2e.setupCode="$E2E_SETUP_CODE" \
+            -De2e.noSandbox=true \
+            -De2e.chromeBinary="${{ steps.chrome.outputs.chrome-path }}" \
+            -Dwebdriver.chrome.driver="${{ steps.chrome.outputs.chromedriver-path }}"
+
+      - name: Upload jetty log and screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-artifacts
+          path: |
+            jetty.log
+            target/e2e-screenshots/
+          if-no-files-found: warn
+
+      - name: Stop the app
+        if: always()
+        run: pkill -f 'jetty:run' || true
