@@ -1,0 +1,61 @@
+# Run against the evidence instance on port 8083 with HS_EVIDENCE_PASSWORD exported:
+#   zap.sh -cmd -autorun src/test/zap/homesmart-plan.yaml
+env:
+  contexts:
+    - name: homesmart
+      urls:
+        - http://127.0.0.1:8083/homesmart/
+      includePaths:
+        - http://127.0.0.1:8083/homesmart/.*
+      excludePaths:
+        - http://127.0.0.1:8083/homesmart/logout.*
+      authentication:
+        method: form
+        parameters:
+          loginPageUrl: http://127.0.0.1:8083/homesmart/login
+          loginRequestUrl: http://127.0.0.1:8083/homesmart/login
+          loginRequestBody: username={%username%}&password={%password%}
+        verification:
+          method: response
+          loggedInRegex: '\QLog out\E'
+          loggedOutRegex: '\Qname="password"\E'
+      sessionManagement:
+        method: cookie
+      users:
+        - name: evidence
+          credentials:
+            username: evidence
+            password: ${HS_EVIDENCE_PASSWORD}
+  parameters:
+    failOnError: true
+    progressToStdout: true
+jobs:
+  - type: passiveScan-config
+  - type: spider
+    parameters:
+      context: homesmart
+      user: evidence
+      maxDuration: 5
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+  # The active scan fuzzes /login and can trip the login throttle; the refusals are expected.
+  - type: activeScan
+    parameters:
+      context: homesmart
+      user: evidence
+      policy: Default Policy
+      maxRuleDurationInMins: 5
+      maxScanDurationInMins: 30
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: target/zap
+      reportFile: homesmart-zap
+      reportTitle: HomeSmart evidence scan
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: target/zap
+      reportFile: homesmart-zap
+      reportTitle: HomeSmart evidence scan
