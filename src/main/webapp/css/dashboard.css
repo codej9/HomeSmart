@@ -3,6 +3,7 @@
     font-family: Inter, "Segoe UI", Arial, sans-serif;
     color: #f2f4f6;
     background: #171b1e;
+    color-scheme: dark;
 }
 
 * {
@@ -66,6 +67,12 @@ body {
     line-height: 1;
 }
 
+.brand-mark img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
 .brand-accent {
     font-weight: 400;
     color: #c0cad3;
@@ -79,6 +86,38 @@ body {
     letter-spacing: 2px;
     font-weight: 750;
     color: #c5ced6;
+}
+
+.theme-controls {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    padding: 10px 15px;
+    border: 1px solid rgba(225, 235, 245, .22);
+    border-radius: 9px;
+    background: rgba(210, 222, 232, .12);
+    color: #f2f4f6;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.theme-toggle:hover {
+    background: rgba(210, 222, 232, .22);
+}
+
+.theme-toggle img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
 }
 
 .main-content {
@@ -159,6 +198,12 @@ body {
     color: #f1f5f8;
 }
 
+.device-icon img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+}
+
 .device-card h3 {
     font-size: 23px;
     font-weight: 550;
@@ -215,6 +260,12 @@ body {
 
 .action-button span {
     font-size: 20px;
+}
+
+.action-button img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
 }
 
 .action-button:hover,
@@ -284,7 +335,6 @@ body {
     cursor: pointer;
 }
 
-/* Eco preset button on the thermostat card (Release 2) */
 .card-controls .eco-form {
     margin-top: 12px;
 }
@@ -317,9 +367,23 @@ body {
     cursor: default;
 }
 
+.eco-button:disabled {
+    opacity: 1;
+}
+
 .eco-leaf {
     font-size: 17px;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.eco-leaf img {
+    width: 19px;
+    height: 19px;
+    object-fit: contain;
 }
 
 .alert {
@@ -362,6 +426,15 @@ body {
     font-size: 14px;
     font-weight: 600;
     text-underline-offset: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.text-link img {
+    width: 17px;
+    height: 17px;
+    object-fit: contain;
 }
 
 .activity-panel {
@@ -407,6 +480,120 @@ input:focus-visible {
     outline-offset: 3px;
 }
 
+body.light-mode {
+    background:
+        radial-gradient(ellipse at 90% 5%, rgba(180, 196, 210, .45), transparent 48%),
+        linear-gradient(135deg, #edf0f2, #e2e8ed);
+    background-attachment: fixed;
+    color: #20282f;
+    color-scheme: light;
+}
+
+body.light-mode .glass {
+    background: rgba(255, 255, 255, .66);
+    border-color: rgba(255, 255, 255, .8);
+    box-shadow: 0 12px 32px rgba(60, 75, 90, .09);
+}
+
+body.light-mode .brand-accent,
+body.light-mode .topbar-label,
+body.light-mode .eyebrow,
+body.light-mode .category,
+body.light-mode .section-note,
+body.light-mode .hero-subtitle,
+body.light-mode .status-line,
+body.light-mode .target-form label,
+body.light-mode .footer,
+body.light-mode .empty-state,
+body.light-mode .activity-table th,
+body.light-mode .activity-table time {
+    color: #526171;
+}
+
+body.light-mode .status-line strong,
+body.light-mode .text-link {
+    color: #20282f;
+}
+
+body.light-mode .brand-mark {
+    background: #34414d;
+    color: #ffffff;
+}
+
+body.light-mode .device-icon,
+body.light-mode .square-button,
+body.light-mode .target-row input {
+    background: rgba(210, 220, 230, .6);
+    color: #20282f;
+    border-color: #cbd5df;
+}
+
+body.light-mode .square-button:hover {
+    background: #d3dee8;
+}
+
+body.light-mode .action-button,
+body.light-mode .small-button {
+    background: #34414d;
+    color: #ffffff;
+    border-color: #34414d;
+}
+
+body.light-mode .action-button:hover,
+body.light-mode .small-button:hover {
+    background: #25313c;
+}
+
+body.light-mode .eco-button {
+    color: #27613e;
+    background: #e3f4e8;
+    border-color: #8dc9a1;
+}
+
+body.light-mode .eco-button:hover {
+    background: #d5eddd;
+}
+
+body.light-mode .eco-button.is-active {
+    color: #205332;
+    background: #ccebd5;
+}
+
+body.light-mode .activity-table td {
+    border-color: #d5dee6;
+}
+
+body.light-mode .alert-notice {
+    background: #e3eaf0;
+    border-color: #b9c8d6;
+}
+
+body.light-mode .alert-success {
+    background: #d9f1e1;
+    border-color: #9ac9a8;
+}
+
+body.light-mode .alert-error {
+    background: #fbe2e2;
+    border-color: #e5aaaa;
+}
+
+body.light-mode .theme-toggle {
+    background: rgba(225, 232, 238, .75);
+    color: #20282f;
+    border-color: #cbd5df;
+}
+
+body.light-mode .theme-toggle:hover {
+    background: #d3dee8;
+}
+
+body.light-mode button:focus-visible,
+body.light-mode input:focus-visible,
+body.light-mode a:focus-visible {
+    outline-color: #34495e;
+}
+
 @media (max-width: 850px) {
     .device-grid {
         grid-template-columns: 1fr 1fr;
@@ -433,6 +620,15 @@ input:focus-visible {
     .topbar-label,
     .section-note {
         display: none;
+    }
+
+    .theme-controls {
+        gap: 8px;
+    }
+
+    .theme-toggle {
+        padding: 9px 11px;
+        font-size: 12px;
     }
 
     .device-grid {
