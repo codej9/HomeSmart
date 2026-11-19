@@ -16,7 +16,10 @@ fail=0
 
 # The one-time message at the top of the dashboard (success or error alert)
 flash_message() {
-    grep -oE '<div class="alert alert-(success|error)"[^>]*>[^<]*' <<<"$1" | sed -E 's/<[^>]*>//' | head -1
+    tr '\r\n' '  ' <<<"$1" |
+        grep -oE '<div class="alert alert-(success|error)"[^>]*>[^<]*' |
+        sed -E 's/<[^>]*>//; s/^[[:space:]]+//; s/[[:space:]]+$//' |
+        head -1
 }
 
 # check <label> <expected message text> <deviceId> <action> [value]

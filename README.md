@@ -99,6 +99,14 @@ The log is kept in memory, holds the last 200 commands, and clears when the serv
 
 **GET `/activity`** forwards to `WEB-INF/views/activity.jsp` with `activity`, the full log, newest first.
 
+## Release 2 – Frontend & Integration (Mahad)
+
+Updated the JSP dashboard with Phosphor SVG icons, light/dark themes, and improved styling while keeping the original layout.
+
+Added frontend support for the thermostat's Eco Mode button. The dashboard uses Java servlets to process device actions and displays updated device statuses and activity logs.
+
+Tested the dashboard locally with Jetty and confirmed the MySQL connection.
+
 ## Release 2 – Backend & device controls (Omer)
 
 Tasks: verify thermostat validation and error handling; make sure all three device controls communicate with MySQL
@@ -170,9 +178,6 @@ including 14 MySQL integration tests that require an explicitly configured dispo
 
 ### Notes for the team
 
-- **Dashboard (Mahad):** the Eco button is the `eco-form` form in the thermostat card of `devices.jsp`; its styles
-  (`.eco-button`, `.eco-button.is-active`) are under "Eco preset button" in `dashboard.css` and use fixed dark-theme
-  colours, so they need a light-mode variant. `error.jsp` uses the same shell and stylesheet as the dashboard.
 - **Database (Alfonso):** The DAO saves Eco Mode as 20 °C with a fresh `last_updated` value, including when the
   thermostat is already at 20 °C. Apply the timestamp migration before deploying to an existing database.
 - **Activity log and testing (Matt):** Eco is logged as "Eco mode: set temperature to 20 °C".
