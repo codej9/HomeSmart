@@ -43,9 +43,16 @@ mvn jetty:run        # quick local run at http://localhost:8080/homesmart (no To
 
 For Tomcat 10.1, deploy `target/homesmart.war` (or add it as an artifact in IntelliJ's Tomcat run configuration).
 
-`DeviceServiceTest` checks the device logic on sample data. `MySqlDeviceDAOTest` checks that each command is saved in
-and read back from the MySQL table; it runs only when `db.properties` exists and MySQL is reachable (otherwise it is
-skipped) and puts the original rows back afterwards. `ActivityLogTest` checks the log order and size limit.
+`DeviceServiceTest` and `InMemoryDeviceTimestampTest` check device logic and timestamps on sample data.
+`ActivityLogTest` checks the log order and size limit. `MySqlDeviceDAOTest` checks state and timestamp persistence
+using a fresh DAO for reads and restores the original values after each test. It is skipped unless
+`HOMESMART_TEST_DB_URL` is set. Set that URL and `HOMESMART_TEST_DB_USER` and `HOMESMART_TEST_DB_PASSWORD` for a
+disposable test database with the current schema and seed rows. The test account needs SELECT, UPDATE and
+CREATE TEMPORARY TABLES privileges.
+
+For an existing installation, apply `src/migrations/001_add_device_last_updated.sql` before deploying this version.
+It adds a nullable column and preserves the existing rows. Each successful device command saves its update time in
+UTC with microsecond precision, including commands that request the current state.
 
 ## Structure
 

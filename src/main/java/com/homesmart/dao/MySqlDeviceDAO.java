@@ -13,6 +13,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -26,10 +30,10 @@ import java.util.Optional;
 public class MySqlDeviceDAO implements DeviceDAO {
 
     private static final String SELECT_DEVICES =
-            "SELECT device_id, device_name, device_type, power_on, temperature, locked FROM devices";
+            "SELECT device_id, device_name, device_type, power_on, temperature, locked, last_updated FROM devices";
 
     private static final String UPDATE_DEVICE =
-            "UPDATE devices SET power_on = ?, temperature = ?, locked = ? WHERE device_id = ?";
+            "UPDATE devices SET power_on = ?, temperature = ?, locked = ?, last_updated = ? WHERE device_id = ?";
 
     private final String url;
     private final String user;
@@ -102,10 +106,13 @@ public class MySqlDeviceDAO implements DeviceDAO {
             statement.setObject(1, powerOn, Types.BOOLEAN);
             statement.setObject(2, temperature, Types.INTEGER);
             statement.setObject(3, locked, Types.BOOLEAN);
-            statement.setInt(4, device.getId());
+            Instant lastUpdated = Instant.now().truncatedTo(ChronoUnit.MICROS);
+            statement.setObject(4, LocalDateTime.ofInstant(lastUpdated, ZoneOffset.UTC));
+            statement.setInt(5, device.getId());
             if (statement.executeUpdate() == 0) {
                 throw new IllegalArgumentException("No device with id " + device.getId());
             }
+            device.setLastUpdated(lastUpdated);
         } catch (SQLException e) {
             throw databaseError(e);
         }
@@ -119,13 +126,16 @@ public class MySqlDeviceDAO implements DeviceDAO {
         int id = row.getInt("device_id");
         String name = row.getString("device_name");
         DeviceType type = DeviceType.valueOf(row.getString("device_type"));
-        return switch (type) {
+        Device device = switch (type) {
             case LIGHT -> new Light(id, name, row.getBoolean("power_on"));
             // The column is DECIMAL(4,1); the app works in whole degrees, so round it
             case THERMOSTAT -> new Thermostat(id, name,
                     row.getBigDecimal("temperature").setScale(0, RoundingMode.HALF_UP).intValue());
             case DOOR_LOCK -> new DoorLock(id, name, row.getBoolean("locked"));
         };
+        LocalDateTime lastUpdated = row.getObject("last_updated", LocalDateTime.class);
+        device.setLastUpdated(lastUpdated == null ? null : lastUpdated.toInstant(ZoneOffset.UTC));
+        return device;
     }
 
     private IllegalStateException databaseError(SQLException e) {

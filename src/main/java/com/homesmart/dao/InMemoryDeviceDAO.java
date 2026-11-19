@@ -5,6 +5,8 @@ import com.homesmart.model.DoorLock;
 import com.homesmart.model.Light;
 import com.homesmart.model.Thermostat;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +44,7 @@ public class InMemoryDeviceDAO implements DeviceDAO {
         if (!devices.containsKey(device.getId())) {
             throw new IllegalArgumentException("No device with id " + device.getId());
         }
+        device.setLastUpdated(Instant.now().truncatedTo(ChronoUnit.MICROS));
         save(device);
     }
 
