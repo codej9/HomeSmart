@@ -6,6 +6,12 @@ public class Thermostat extends Device {
     public static final int MIN_TEMPERATURE = 10;
     public static final int MAX_TEMPERATURE = 32;
 
+    /** Energy-saving preset applied by the Eco mode button. */
+    public static final int ECO_TEMPERATURE = 20;
+
+    public static final String RANGE_MESSAGE =
+            "Temperature must be between " + MIN_TEMPERATURE + " and " + MAX_TEMPERATURE + " °C";
+
     private int temperature;
 
     public Thermostat(int id, String name, int temperature) {
@@ -22,10 +28,14 @@ public class Thermostat extends Device {
      */
     public void setTemperature(int temperature) {
         if (temperature < MIN_TEMPERATURE || temperature > MAX_TEMPERATURE) {
-            throw new IllegalArgumentException("Temperature must be between "
-                    + MIN_TEMPERATURE + " and " + MAX_TEMPERATURE + " °C");
+            throw new IllegalArgumentException(RANGE_MESSAGE);
         }
         this.temperature = temperature;
+    }
+
+    /** True when the thermostat is at the Eco preset temperature. */
+    public boolean isEcoMode() {
+        return temperature == ECO_TEMPERATURE;
     }
 
     // Instance getters so JSP pages can read the limits with EL, e.g. ${device.minTemperature}
@@ -37,8 +47,12 @@ public class Thermostat extends Device {
         return MAX_TEMPERATURE;
     }
 
+    public int getEcoTemperature() {
+        return ECO_TEMPERATURE;
+    }
+
     @Override
     public String getStatus() {
-        return temperature + " °C";
+        return temperature + " °C" + (isEcoMode() ? " · Eco" : "");
     }
 }

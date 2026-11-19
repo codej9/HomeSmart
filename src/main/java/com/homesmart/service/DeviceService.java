@@ -69,7 +69,26 @@ public class DeviceService {
     /** Raises or lowers the target temperature by {@code delta} degrees. */
     public synchronized CommandResult adjustTemperature(int thermostatId, int delta) {
         Thermostat thermostat = getDevice(thermostatId, Thermostat.class);
-        return setTemperature(thermostatId, thermostat.getTemperature() + delta);
+        int target = thermostat.getTemperature() + delta;
+        // The user pressed + or −, so say which limit was reached rather than repeating the range
+        if (target > Thermostat.MAX_TEMPERATURE) {
+            throw new IllegalArgumentException(thermostat.getName()
+                    + " is already at the maximum of " + Thermostat.MAX_TEMPERATURE + " °C");
+        }
+        if (target < Thermostat.MIN_TEMPERATURE) {
+            throw new IllegalArgumentException(thermostat.getName()
+                    + " is already at the minimum of " + Thermostat.MIN_TEMPERATURE + " °C");
+        }
+        return setTemperature(thermostatId, target);
+    }
+
+    /** Eco preset: sets the thermostat to the energy-saving {@link Thermostat#ECO_TEMPERATURE} in one step. */
+    public synchronized CommandResult setEcoMode(int thermostatId) {
+        Thermostat thermostat = getDevice(thermostatId, Thermostat.class);
+        thermostat.setTemperature(Thermostat.ECO_TEMPERATURE);
+        deviceDAO.update(thermostat);
+        return new CommandResult(thermostat.getName(),
+                "Eco mode: set temperature to " + Thermostat.ECO_TEMPERATURE + " °C");
     }
 
     // ---- Door lock ----
@@ -94,7 +113,7 @@ public class DeviceService {
     /**
      * Runs a command sent from the dashboard form.
      *
-     * @param action one of on, off, toggle, increase, decrease, set, lock, unlock
+     * @param action one of on, off, toggle, increase, decrease, set, eco, lock, unlock
      * @param value  the target temperature for "set"; ignored otherwise
      */
     public synchronized CommandResult execute(int deviceId, String action, String value) {
@@ -107,7 +126,12 @@ public class DeviceService {
             case "toggle" -> toggleLight(deviceId);
             case "increase" -> adjustTemperature(deviceId, 1);
             case "decrease" -> adjustTemperature(deviceId, -1);
-            case "set" -> setTemperature(deviceId, parseTemperature(value));
+            case "set" -> {
+                // Check the device first, so "set" sent to a light reports the wrong device, not the value
+                getDevice(deviceId, Thermostat.class);
+                yield setTemperature(deviceId, parseTemperature(value));
+            }
+            case "eco" -> setEcoMode(deviceId);
             case "lock" -> lock(deviceId);
             case "unlock" -> unlock(deviceId);
             default -> throw new IllegalArgumentException("Unknown action: " + action);
@@ -115,9 +139,17 @@ public class DeviceService {
     }
 
     private static int parseTemperature(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Enter a target temperature");
+        }
+        String trimmed = value.trim();
         try {
-            return Integer.parseInt(value.trim());
-        } catch (NullPointerException | NumberFormatException e) {
+            return Integer.parseInt(trimmed);
+        } catch (NumberFormatException e) {
+            if (trimmed.matches("[+-]?\\d+")) {
+                // A whole number, just too large for an int, e.g. 99999999999
+                throw new IllegalArgumentException(Thermostat.RANGE_MESSAGE);
+            }
             throw new IllegalArgumentException("Temperature must be a whole number");
         }
     }

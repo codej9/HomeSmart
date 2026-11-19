@@ -54,6 +54,10 @@ For an existing installation, apply `src/migrations/001_add_device_last_updated.
 It adds a nullable column and preserves the existing rows. Each successful device command saves its update time in
 UTC with microsecond precision, including commands that request the current state.
 
+With the app running, `bash scripts/http-smoke-test.sh` sends 35 real requests to it (every command plus every kind of
+bad request) and checks the HTTP codes and the message the dashboard shows. It changes the device states. On Windows,
+run it from Git Bash.
+
 ## Structure
 
 | Package | Purpose |
@@ -68,8 +72,9 @@ UTC with microsecond precision, including commands that request the current stat
 
 **GET `/devices`** forwards to `WEB-INF/views/devices.jsp` with these request attributes:
 
-- `devices` – list of devices. Every device has `id`, `name`, `type` (`LIGHT`, `THERMOSTAT`, `DOOR_LOCK`) and `status` (e.g. "On", "21 °C", "Locked").
-  Lights also have `on`; thermostats have `temperature`, `minTemperature`, `maxTemperature`; door locks have `locked`.
+- `devices` – list of devices. Every device has `id`, `name`, `type` (`LIGHT`, `THERMOSTAT`, `DOOR_LOCK`) and `status` (e.g. "On", "21 °C", "20 °C · Eco", "Locked").
+  Lights also have `on`; thermostats have `temperature`, `minTemperature`, `maxTemperature`, `ecoTemperature` (20) and
+  `ecoMode` (true at 20 °C); door locks have `locked`.
 - `flashMessage` / `flashError` – result of the last command (shown once).
 - `activity` – the 5 most recent commands as `CommandResult` items, newest first.
 
@@ -78,16 +83,99 @@ UTC with microsecond precision, including commands that request the current stat
 | Device | `action` | `value` |
 |---|---|---|
 | Light | `on`, `off`, `toggle` | – |
-| Thermostat | `increase`, `decrease` (±1 °C), `set` | target °C for `set` (10–32) |
+| Thermostat | `increase`, `decrease` (±1 °C), `set`, `eco` (sets 20 °C) | target °C for `set` (10–32) |
 | Door lock | `lock`, `unlock` | – |
 
 plus `deviceId`. The servlet redirects back to `GET /devices` afterwards.
 
+**Errors:** an unknown page (404) or any unexpected server error shows `WEB-INF/views/error.jsp` (set in `web.xml`)
+instead of the server's default page, so users never see Java exception details.
+
 **Database:** `MySqlDeviceDAO` reads and updates the `devices` table from `homesmart.sql`
-(`power_on` for lights, `temperature` for thermostats, `locked` for door locks).
+(`power_on` for lights, `temperature` for thermostats, `locked` for door locks, and `last_updated` for every device).
 
 **Activity log:** every successful command is recorded as a `CommandResult(deviceName, action, timestamp)`.
 The log is kept in memory, holds the last 200 commands, and clears when the server restarts.
 
 **GET `/activity`** forwards to `WEB-INF/views/activity.jsp` with `activity`, the full log, newest first.
+
+## Release 2 – Backend & device controls (Omer)
+
+Tasks: verify thermostat validation and error handling; make sure all three device controls communicate with MySQL
+correctly; add a thermostat preset button (Eco Mode at 20 °C).
+
+### What changed
+
+- **Eco Mode (new feature).** The thermostat card has an *Eco mode · 20 °C* button. It posts `action=eco`;
+  `DeviceService.setEcoMode()` checks the device is a thermostat, sets 20 °C and saves it through the DAO. The status
+  reads "20 °C · Eco" and the button shows *Eco mode on* (disabled) while the thermostat is at 20 °C. The command
+  appears in the activity log as "Eco mode: set temperature to 20 °C". 20 °C is the setting Natural Resources Canada
+  recommends while people are awake and at home ([Smart thermostats](https://natural-resources.canada.ca/energy-efficiency/energy-star/smart-thermostats)).
+- **Bug fix: a bad temperature in MySQL crashed the dashboard.** The `temperature` column (DECIMAL(4,1)) does not
+  enforce the 10–32 °C range. A thermostat row holding 40, 32.5, 9.4 or NULL (e.g. after editing the table by hand) made
+  `GET /devices` fail with HTTP 500 for all three devices, and the default error page showed the Java stack trace.
+  `MySqlDeviceDAO` now rounds the stored value, keeps it inside 10–32 °C, uses 20 °C (Eco) when it is empty, and logs a
+  warning such as `Thermostat has an out-of-range saved temperature (40.0 °C); using 32 °C`. The next temperature
+  change saves a valid value again.
+- **Friendly error page.** `web.xml` maps 404, 500 and any uncaught exception to `WEB-INF/views/error.jsp`.
+- **Clearer error messages.** Every invalid command is still refused and nothing is saved; only the wording changed:
+
+  | Request | Release 1 message | Release 2 message |
+  |---|---|---|
+  | `increase` at 32 °C / `decrease` at 10 °C | Temperature must be between 10 and 32 °C | Thermostat is already at the maximum of 32 °C / minimum of 10 °C |
+  | `set` with an empty or missing value | Temperature must be a whole number | Enter a target temperature |
+  | `set` with `99999999999` | Temperature must be a whole number | Temperature must be between 10 and 32 °C |
+  | `set` with `warm` sent to the light | Temperature must be a whole number | Living Room Light does not support this action |
+
+### Testing results (18 Nov 2026)
+
+Run on macOS with Java 26 (compiling for Java 17), Maven 3.9.11, Jetty 12 (`mvn jetty:run`) and MySQL 9.7.1 loaded
+from `src/homesmart.sql`.
+
+| Layer | Tests | Result |
+|---|---|---|
+| Unit – `DeviceServiceTest` (logic on sample data) | 23 (8 new: Eco Mode, limit messages, value messages, check order) | all pass |
+| Integration – `MySqlDeviceDAOTest` (real MySQL) | 14 (8 new: all 9 commands read back by a fresh DAO as after a restart, Eco pressed twice, 6 bad stored values) | all pass |
+| Unit – `ActivityLogTest` | 2 | all pass |
+| End-to-end – `scripts/http-smoke-test.sh` against the running app | 35 checks | 35 passed, 0 failed |
+
+That run covered 39 tests (23 at the start of Release 2). With the timestamp tests, `mvn test` reports 41 tests,
+including 14 MySQL integration tests that require an explicitly configured disposable database.
+
+**All three devices ↔ MySQL.** Each command was sent through the dashboard's HTTP form and the row checked in MySQL
+(`power_on | temperature | locked`):
+
+| Command | Dashboard message | `devices` row afterwards |
+|---|---|---|
+| Light `on` / `off` / `toggle` | Living Room Light: Turned on / Turned off / Turned on | `1` / `0` / `1` |
+| Thermostat `set 23`, `increase`, `decrease` | Set temperature to 23 / 24 / 23 °C | `23.0` / `24.0` / `23.0` |
+| Thermostat `eco` | Eco mode: set temperature to 20 °C | `20.0` |
+| Door lock `unlock` / `lock` | Front Door Lock: Unlocked / Locked | `0` / `1` |
+| Rejected: `set 40`, `eco` on the light | error message | unchanged |
+
+**Bad value saved in MySQL** (thermostat row edited directly):
+
+| Saved value | Release 1 | Release 2 |
+|---|---|---|
+| 40 | HTTP 500 + stack trace | page loads, shows 32 °C, warning logged |
+| 32.5 / 9.4 | HTTP 500 + stack trace | page loads, shows 32 °C / 10 °C, warning logged |
+| NULL | HTTP 500 (NullPointerException) | page loads, shows 20 °C, warning logged |
+| 21.5 | shows 22 °C | shows 22 °C (unchanged) |
+
+**Restart and outage (manual):**
+- Set light off, 25 °C, door unlocked → stopped and restarted the app → the dashboard showed Off, 25 °C, Unlocked.
+- Stopped MySQL with the app running → `GET /devices` returned 200 with "Could not reach the database…" and no Java
+  details; an `eco` command sent meanwhile showed the same message and changed nothing.
+- Started MySQL again → the dashboard showed the devices again without restarting the app.
+
+### Notes for the team
+
+- **Dashboard (Mahad):** the Eco button is the `eco-form` form in the thermostat card of `devices.jsp`; its styles
+  (`.eco-button`, `.eco-button.is-active`) are under "Eco preset button" in `dashboard.css` and use fixed dark-theme
+  colours, so they need a light-mode variant. `error.jsp` uses the same shell and stylesheet as the dashboard.
+- **Database (Alfonso):** The DAO saves Eco Mode as 20 °C with a fresh `last_updated` value, including when the
+  thermostat is already at 20 °C. Apply the timestamp migration before deploying to an existing database.
+- **Activity log and testing (Matt):** Eco is logged as "Eco mode: set temperature to 20 °C".
+  `scripts/http-smoke-test.sh` re-runs the 35 end-to-end checks; it reads the message from the
+  `alert alert-success` / `alert alert-error` boxes, so update `flash_message()` there if that markup changes.
 

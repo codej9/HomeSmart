@@ -3,7 +3,7 @@
   The styled dashboard (frontend) can replace this file: the servlet provides
   ${devices}, ${activity}, ${flashMessage}, ${flashError} and ${applicationScope.usingSampleData},
   and each form posts
-  deviceId + action (+ value for "set") to /devices.
+  deviceId + action (+ value for "set") to /devices. The thermostat's Eco button posts action "eco".
 --%>
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
@@ -67,6 +67,14 @@
                                     <input type="hidden" name="deviceId" value="${device.id}">
                                     <label for="target-${device.id}">Target temperature</label>
                                     <div class="target-row"><input id="target-${device.id}" type="number" name="value" value="${device.temperature}" min="${device.minTemperature}" max="${device.maxTemperature}" step="1" required aria-label="Target temperature in Celsius"><button class="small-button" type="submit" name="action" value="set">Set</button></div>
+                                </form>
+                                <%-- Eco preset: one tap to the energy-saving temperature; disabled while already in Eco mode --%>
+                                <form class="eco-form" method="post" action="${pageContext.request.contextPath}/devices">
+                                    <input type="hidden" name="deviceId" value="${device.id}">
+                                    <button class="eco-button ${device.ecoMode ? 'is-active' : ''}" type="submit" name="action" value="eco" ${device.ecoMode ? 'disabled' : ''}>
+                                        <span class="eco-leaf" aria-hidden="true">&#x2618;&#xFE0E;</span>
+                                        <span>${device.ecoMode ? 'Eco mode on' : 'Eco mode'} · ${device.ecoTemperature} °C</span>
+                                    </button>
                                 </form>
                             </c:when>
                             <c:when test="${device.type == 'DOOR_LOCK'}">

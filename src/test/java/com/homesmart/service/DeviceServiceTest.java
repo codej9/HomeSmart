@@ -123,8 +123,65 @@ class DeviceServiceTest {
         @Test
         void cannotIncreasePastMaximum() {
             service.setTemperature(THERMOSTAT, Thermostat.MAX_TEMPERATURE);
-            assertThrows(IllegalArgumentException.class, () -> service.adjustTemperature(THERMOSTAT, 1));
+            var e = assertThrows(IllegalArgumentException.class, () -> service.adjustTemperature(THERMOSTAT, 1));
+            assertEquals("Main Thermostat is already at the maximum of 32 °C", e.getMessage());
             assertEquals(Thermostat.MAX_TEMPERATURE, thermostat().getTemperature());
+        }
+
+        @Test
+        void cannotDecreasePastMinimum() {
+            service.setTemperature(THERMOSTAT, Thermostat.MIN_TEMPERATURE);
+            var e = assertThrows(IllegalArgumentException.class, () -> service.adjustTemperature(THERMOSTAT, -1));
+            assertEquals("Main Thermostat is already at the minimum of 10 °C", e.getMessage());
+            assertEquals(Thermostat.MIN_TEMPERATURE, thermostat().getTemperature());
+        }
+    }
+
+    @Nested
+    class EcoMode {
+
+        @Test
+        void setsTheEcoTemperature() {
+            CommandResult result = service.setEcoMode(THERMOSTAT);
+            assertEquals(Thermostat.ECO_TEMPERATURE, thermostat().getTemperature());
+            assertTrue(thermostat().isEcoMode());
+            assertEquals("20 °C · Eco", thermostat().getStatus());
+            assertEquals("Main Thermostat: Eco mode: set temperature to 20 °C", result.message());
+        }
+
+        @Test
+        void worksFromEitherLimit() {
+            service.setTemperature(THERMOSTAT, Thermostat.MAX_TEMPERATURE);
+            service.execute(THERMOSTAT, "eco", null);
+            assertEquals(Thermostat.ECO_TEMPERATURE, thermostat().getTemperature());
+
+            service.setTemperature(THERMOSTAT, Thermostat.MIN_TEMPERATURE);
+            service.execute(THERMOSTAT, "eco", null);
+            assertEquals(Thermostat.ECO_TEMPERATURE, thermostat().getTemperature());
+        }
+
+        @Test
+        void pressingAgainKeepsEcoMode() {
+            service.setEcoMode(THERMOSTAT);
+            service.setEcoMode(THERMOSTAT);
+            assertEquals(Thermostat.ECO_TEMPERATURE, thermostat().getTemperature());
+        }
+
+        @Test
+        void leavesEcoModeWhenTheTemperatureChanges() {
+            service.setEcoMode(THERMOSTAT);
+            service.adjustTemperature(THERMOSTAT, 1);
+            assertFalse(thermostat().isEcoMode());
+            assertEquals("21 °C", thermostat().getStatus());
+        }
+
+        @Test
+        void onlyThermostatsHaveEcoMode() {
+            var e = assertThrows(IllegalArgumentException.class, () -> service.execute(LIGHT, "eco", null));
+            assertEquals("Living Room Light does not support this action", e.getMessage());
+            assertThrows(IllegalArgumentException.class, () -> service.execute(DOOR_LOCK, "eco", null));
+            assertFalse(light().isOn());
+            assertTrue(doorLock().isLocked());
         }
     }
 
@@ -161,6 +218,8 @@ class DeviceServiceTest {
             assertEquals(21, thermostat().getTemperature());
             service.execute(THERMOSTAT, "set", " 18 ");
             assertEquals(18, thermostat().getTemperature());
+            service.execute(THERMOSTAT, "eco", null);
+            assertEquals(Thermostat.ECO_TEMPERATURE, thermostat().getTemperature());
 
             service.execute(DOOR_LOCK, "unlock", null);
             assertFalse(doorLock().isLocked());
@@ -192,6 +251,32 @@ class DeviceServiceTest {
             assertThrows(IllegalArgumentException.class, () -> service.execute(THERMOSTAT, "set", "warm"));
             assertThrows(IllegalArgumentException.class, () -> service.execute(THERMOSTAT, "set", null));
             assertEquals(21, thermostat().getTemperature());
+        }
+
+        /** Each bad "set" value gets a message that says what to fix, and the temperature stays at 21 °C. */
+        @Test
+        void explainsWhatIsWrongWithATemperature() {
+            assertEquals("Enter a target temperature", setError(""));
+            assertEquals("Enter a target temperature", setError("   "));
+            assertEquals("Enter a target temperature", setError(null));
+            assertEquals("Temperature must be a whole number", setError("21.5"));
+            assertEquals("Temperature must be a whole number", setError("warm"));
+            assertEquals("Temperature must be between 10 and 32 °C", setError("40"));
+            assertEquals("Temperature must be between 10 and 32 °C", setError("-5"));
+            // Too large for an int: still a whole number, so report the range rather than "whole number"
+            assertEquals("Temperature must be between 10 and 32 °C", setError("99999999999"));
+            assertEquals(21, thermostat().getTemperature());
+        }
+
+        @Test
+        void reportsTheWrongDeviceBeforeABadValue() {
+            var e = assertThrows(IllegalArgumentException.class, () -> service.execute(LIGHT, "set", "warm"));
+            assertEquals("Living Room Light does not support this action", e.getMessage());
+        }
+
+        private String setError(String value) {
+            return assertThrows(IllegalArgumentException.class,
+                    () -> service.execute(THERMOSTAT, "set", value)).getMessage();
         }
     }
 }
