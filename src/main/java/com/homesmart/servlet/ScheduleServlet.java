@@ -24,7 +24,8 @@ import java.util.Map;
  * Schedules page.
  *
  * <ul>
- *   <li>GET  /schedules – lists the schedules and the form to add one.</li>
+ *   <li>GET  /schedules – lists the schedules and the form to add one. The optional {@code deviceId}
+ *       parameter, sent by a dashboard light card, preselects the device and focuses the form.</li>
  *   <li>POST /schedules – {@code op} is create, enable, disable or delete; the last 3 also take
  *       {@code scheduleId}. Redirects back to GET, like {@link DeviceServlet}.</li>
  * </ul>
@@ -58,10 +59,20 @@ public class ScheduleServlet extends HttpServlet {
                 request.setAttribute(DeviceServlet.FLASH_ERROR, DeviceServlet.DATABASE_UNAVAILABLE);
             }
         }
+        request.setAttribute("selectedDeviceId", selectedDeviceId(request.getParameter("deviceId")));
         request.setAttribute("zone", ZoneId.systemDefault().getId());
         request.setAttribute("minTemperature", Thermostat.MIN_TEMPERATURE);
         request.setAttribute("maxTemperature", Thermostat.MAX_TEMPERATURE);
         request.getRequestDispatcher(VIEW).forward(request, response);
+    }
+
+    /** The device the dashboard card asked for, or null when the parameter is missing or not a number. */
+    static Integer selectedDeviceId(String parameter) {
+        try {
+            return Integer.valueOf(parameter);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @Override

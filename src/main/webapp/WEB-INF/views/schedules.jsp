@@ -39,11 +39,11 @@
                         <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                         <input type="hidden" name="op" value="create">
                         <label for="schedule-name">Name</label>
-                        <input id="schedule-name" type="text" name="name" maxlength="50" required>
+                        <input id="schedule-name" type="text" name="name" maxlength="50" required ${not empty selectedDeviceId ? 'autofocus' : ''}>
                         <label for="schedule-device">Device</label>
                         <select id="schedule-device" name="deviceId" required>
                             <c:forEach var="device" items="${devices}">
-                                <option value="${device.id}"><c:out value="${device.name}"/></option>
+                                <option value="${device.id}" ${device.id == selectedDeviceId ? 'selected' : ''}><c:out value="${device.name}"/></option>
                             </c:forEach>
                         </select>
                         <label for="schedule-action">Action</label>

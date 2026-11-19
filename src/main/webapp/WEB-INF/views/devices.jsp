@@ -110,6 +110,9 @@
                                              alt="" aria-hidden="true">
                                     </button>
                                 </form>
+                                <a class="schedule-link"
+                                   href="${pageContext.request.contextPath}/schedules?deviceId=${device.id}"
+                                   aria-label="Schedule <c:out value="${device.name}"/>">Schedule</a>
                             </c:when>
 
                             <c:when test="${device.type == 'THERMOSTAT'}">
