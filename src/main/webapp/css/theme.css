@@ -1,0 +1,32 @@
+/* Color tokens shared by the feature panels. :root holds the dashboard's dark colors and body.light-mode its light colors. */
+:root {
+    --hs-bg: #171b1e;
+    --hs-surface: rgba(210, 222, 232, .09);
+    --hs-border: rgba(225, 235, 245, .22);
+    --hs-text: #f2f4f6;
+    --hs-text-muted: #c5ced6;
+    --hs-accent: #8ce2a4;
+    --hs-success-bg: rgba(130, 190, 158, .16);
+    --hs-error-bg: rgba(225, 125, 125, .15);
+    --hs-button-bg: #e1e6eb;
+    --hs-button-text: #20282f;
+}
+
+body.light-mode {
+    --hs-bg: #e2e8ed;
+    --hs-surface: rgba(255, 255, 255, .66);
+    --hs-border: #cbd5df;
+    --hs-text: #20282f;
+    --hs-text-muted: #526171;
+    --hs-accent: #27613e;
+    --hs-success-bg: #d9f1e1;
+    --hs-error-bg: #fbe2e2;
+    --hs-button-bg: #34414d;
+    --hs-button-text: #ffffff;
+}
+
+.hs-panel {
+    border-radius: 20px;
+    padding: 26px;
+    margin: 0 0 28px;
+}

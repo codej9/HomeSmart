@@ -4,3 +4,5 @@
 db.url=jdbc:mysql://localhost:3306/homesmart
 db.user=homesmart
 db.password=homesmart
+# The MySQL tests run on this separate database and never touch db.url.
+db.test.url=jdbc:mysql://localhost:3306/homesmart_test

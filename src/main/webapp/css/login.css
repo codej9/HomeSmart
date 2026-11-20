@@ -1,0 +1,43 @@
+.login-panel {
+    max-width: 440px;
+    margin: 60px auto 0;
+    padding: 30px;
+    border-radius: 20px;
+}
+
+.login-panel h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-size: 30px;
+    margin: 0 0 20px;
+}
+
+.login-panel label {
+    display: block;
+    font-size: 12px;
+    color: var(--hs-text-muted);
+    margin-bottom: 7px;
+}
+
+.login-panel input[type="text"],
+.login-panel input[type="password"] {
+    width: 100%;
+    margin-bottom: 18px;
+    border: 1px solid var(--hs-border);
+    border-radius: 9px;
+    background: var(--hs-surface);
+    padding: 12px;
+    color: var(--hs-text);
+    font: inherit;
+}
+
+.login-hint {
+    margin: -10px 0 18px;
+    font-size: 12px;
+    color: var(--hs-text-muted);
+}
+
+.login-panel h1 + .login-hint {
+    margin: 0 0 20px;
+    font-size: 14px;
+}

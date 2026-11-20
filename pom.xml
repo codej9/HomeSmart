@@ -6,11 +6,11 @@
 
     <groupId>com.homesmart</groupId>
     <artifactId>homesmart</artifactId>
-    <version>0.1.0-release1</version>
+    <version>1.0.0</version>
     <packaging>war</packaging>
 
     <name>HomeSmart</name>
-    <description>HomeSmart smart-home control application (CST8515 Release 1)</description>
+    <description>HomeSmart smart-home control application (CST8515)</description>
 
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
@@ -30,7 +30,7 @@
         <dependency>
             <groupId>jakarta.servlet.jsp.jstl</groupId>
             <artifactId>jakarta.servlet.jsp.jstl-api</artifactId>
-            <version>3.0.0</version>
+            <version>3.0.2</version>
         </dependency>
         <dependency>
             <groupId>org.glassfish.web</groupId>
@@ -48,7 +48,21 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.11.4</version>
+            <version>5.14.4</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Browser and accessibility checks; run through the e2e profile -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>4.53.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.deque.html.axe-core</groupId>
+            <artifactId>selenium</artifactId>
+            <version>4.14.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -59,29 +73,97 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.16.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.2</version>
+                <version>3.6.1</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
-                <version>3.4.0</version>
+                <version>3.5.1</version>
             </plugin>
             <!-- Lets anyone run the app with "mvn jetty:run" without installing Tomcat -->
             <plugin>
                 <groupId>org.eclipse.jetty.ee10</groupId>
                 <artifactId>jetty-ee10-maven-plugin</artifactId>
-                <version>12.0.16</version>
+                <version>12.0.41</version>
                 <configuration>
                     <webApp>
                         <contextPath>/homesmart</contextPath>
                     </webApp>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.16</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- PIT runs only through its explicit goal; normal builds stay fast. -->
+            <plugin>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-maven</artifactId>
+                <version>1.30.2</version>
+                <configuration>
+                    <targetClasses>
+                        <param>com.homesmart.*</param>
+                    </targetClasses>
+                    <!-- Exclude database writes and classes without a unit-test path. -->
+                    <excludedClasses>
+                        <param>com.homesmart.dao.MySql*</param>
+                        <param>com.homesmart.servlet.*</param>
+                        <param>com.homesmart.listener.*</param>
+                    </excludedClasses>
+                    <excludedTestClasses>
+                        <param>com.homesmart.dao.MySql*Test</param>
+                        <param>com.homesmart.e2e.*</param>
+                    </excludedTestClasses>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-junit5-plugin</artifactId>
+                        <version>1.2.3</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- mvn -Pe2e runs the browser tests against -De2e.baseUrl -->
+        <profile>
+            <id>e2e</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>3.6.1</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*E2E.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

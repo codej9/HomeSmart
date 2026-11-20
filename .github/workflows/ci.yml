@@ -1,0 +1,227 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [17, 21]
+    env:
+      DB_PORT: 33${{ matrix.java }}
+    services:
+      mysql:
+        image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: homesmart
+          MYSQL_USER: homesmart
+          MYSQL_PASSWORD: homesmart
+        # Keep equal to DB_PORT (the env context is not available here).
+        # One port per leg lets both legs run side by side under act.
+        ports:
+          - '33${{ matrix.java }}:3306'
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Install MySQL client if missing
+        run: |
+          if ! command -v mysql >/dev/null; then
+            SUDO=""; command -v sudo >/dev/null && SUDO="sudo"
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y -qq mysql-client \
+              || $SUDO apt-get install -y -qq mysql-client-8.0 \
+              || $SUDO apt-get install -y -qq mariadb-client
+          fi
+
+      - name: Wait for MySQL
+        run: |
+          for _ in $(seq 1 30); do
+            mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" \
+              -u homesmart -phomesmart -e 'SELECT 1' >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "::error::MySQL did not become ready on 127.0.0.1:$DB_PORT"
+          exit 1
+
+      - name: Create test database
+        run: |
+          mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" \
+            -u root -proot \
+            -e "CREATE DATABASE IF NOT EXISTS homesmart_test; GRANT ALL PRIVILEGES ON homesmart_test.* TO 'homesmart'@'%';"
+
+      - name: Import schema
+        run: |
+          for db in homesmart homesmart_test; do
+            mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" \
+              -u homesmart -phomesmart "$db" < src/homesmart.sql
+          done
+
+      - name: Create db.properties
+        run: |
+          sed "s|localhost:3306|127.0.0.1:$DB_PORT|" \
+            src/main/resources/db.properties.example > src/main/resources/db.properties
+
+      - name: Build, test and coverage
+        run: ./mvnw -B verify -Ddb.test.required=true
+
+      - name: Upload JaCoCo report
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: jacoco-report-jdk${{ matrix.java }}
+          path: target/site/jacoco/
+          if-no-files-found: error
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DB_PORT: 3399
+    services:
+      mysql:
+        image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: homesmart
+          MYSQL_USER: homesmart
+          MYSQL_PASSWORD: homesmart
+        # Keep equal to DB_PORT (the env context is not available here).
+        ports:
+          - '3399:3306'
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Install MySQL client if missing
+        run: |
+          if ! command -v mysql >/dev/null; then
+            SUDO=""; command -v sudo >/dev/null && SUDO="sudo"
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y -qq mysql-client \
+              || $SUDO apt-get install -y -qq mysql-client-8.0 \
+              || $SUDO apt-get install -y -qq mariadb-client
+          fi
+
+      - name: Wait for MySQL
+        run: |
+          for _ in $(seq 1 30); do
+            mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" \
+              -u homesmart -phomesmart -e 'SELECT 1' >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "::error::MySQL did not become ready on 127.0.0.1:$DB_PORT"
+          exit 1
+
+      - name: Import schema
+        run: |
+          mysql --protocol=tcp -h 127.0.0.1 -P "$DB_PORT" \
+            -u homesmart -phomesmart homesmart < src/homesmart.sql
+
+      - name: Create db.properties
+        run: |
+          sed "s|localhost:3306|127.0.0.1:$DB_PORT|" \
+            src/main/resources/db.properties.example > src/main/resources/db.properties
+
+      - name: Compile test classes
+        run: ./mvnw -B -q test-compile
+
+      - name: Start the app
+        run: |
+          nohup ./mvnw -B jetty:run -Djetty.http.port=8099 \
+            -Dhomesmart.doorAlertMinutes=1 -Dhomesmart.jobDelaySeconds=5 \
+            > jetty.log 2>&1 &
+
+      - name: Wait for the app
+        run: |
+          for _ in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8099/homesmart/login || true)
+            if [ "$code" = 200 ] || [ "$code" = 302 ]; then exit 0; fi
+            sleep 2
+          done
+          echo "::error::the app did not answer within 120 seconds"
+          tail -n 100 jetty.log
+          exit 1
+
+      - name: Create the e2e credentials
+        run: |
+          code=$(grep -o 'Setup code: [0-9A-Z]\{12\}' jetty.log | tail -n 1 | cut -d' ' -f3)
+          test -n "$code" || { echo "::error::no setup code in jetty.log"; exit 1; }
+          password=$(openssl rand -base64 24)
+          echo "::add-mask::$code"
+          echo "::add-mask::$password"
+          echo "E2E_SETUP_CODE=$code" >> "$GITHUB_ENV"
+          echo "E2E_PASSWORD=$password" >> "$GITHUB_ENV"
+
+      - name: Set up Chrome
+        id: chrome
+        uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2
+        with:
+          install-chromedriver: true
+          install-dependencies: true
+
+      - name: Run end-to-end tests
+        run: |
+          ./mvnw -B -Pe2e surefire:test \
+            -De2e.baseUrl=http://localhost:8099/homesmart \
+            -De2e.user=e2e.tester \
+            -De2e.password="$E2E_PASSWORD" \
+            -De2e.setupCode="$E2E_SETUP_CODE" \
+            -De2e.noSandbox=true \
+            -De2e.chromeBinary="${{ steps.chrome.outputs.chrome-path }}" \
+            -Dwebdriver.chrome.driver="${{ steps.chrome.outputs.chromedriver-path }}"
+
+      - name: Upload jetty log and screenshots
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: e2e-artifacts
+          path: |
+            jetty.log
+            target/e2e-screenshots/
+          if-no-files-found: warn
+
+      - name: Stop the app
+        if: always()
+        run: pkill -f 'jetty:run' || true

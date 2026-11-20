@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # End-to-end check of the device controls through HTTP, the same way the dashboard sends them.
 #
-# Start the app first (mvn jetty:run), then run:   bash scripts/http-smoke-test.sh [base-url]
+# Start the app first (mvn jetty:run), then run:
+#   HS_USER=<username> HS_PASSWORD=<password> bash scripts/http-smoke-test.sh [base-url]
 # Default base URL: http://localhost:8080/homesmart. Works with MySQL or the sample data.
+# The account must already exist (see "Sign-in and remote access" in the README).
 # Uses device 1 (light), 2 (thermostat) and 3 (door lock), and changes their states.
 #
 # Each case posts a command, follows the redirect like a browser, and checks the HTTP codes and the
@@ -19,11 +21,24 @@ flash_message() {
     grep -oE '<div class="alert alert-(success|error)"[^>]*>[^<]*' <<<"$1" | sed -E 's/<[^>]*>//' | head -1
 }
 
+# The _csrf form field value of a page
+csrf_token() {
+    curl -s -c "$JAR" -b "$JAR" "$1" | sed -nE 's/.*name="_csrf" value="([^"]*)".*/\1/p' | head -1
+}
+
+# Signs in with HS_USER and HS_PASSWORD, keeps the session cookie in the jar and reads the dashboard's token
+sign_in() {
+    curl -s -o /dev/null -c "$JAR" -b "$JAR" --data-urlencode "_csrf=$(csrf_token "$BASE/login")" \
+        --data-urlencode "username=$HS_USER" --data-urlencode "password=$HS_PASSWORD" "$BASE/login"
+    CSRF=$(csrf_token "$BASE/devices")
+    [ -n "$CSRF" ]
+}
+
 # check <label> <expected message text> <deviceId> <action> [value]
 check() {
     local label="$1" expected="$2" id="$3" action="$4"
     local args=(-s -o /dev/null -w '%{http_code}' -c "$JAR" -b "$JAR"
-        --data-urlencode "deviceId=$id" --data-urlencode "action=$action")
+        --data-urlencode "_csrf=$CSRF" --data-urlencode "deviceId=$id" --data-urlencode "action=$action")
     [ $# -ge 5 ] && args+=(--data-urlencode "value=$5")
 
     local post page get msg
@@ -46,8 +61,11 @@ result() {
     else fail=$((fail + 1)); printf 'FAIL  %s\n' "$1"; fi
 }
 
-if ! curl -s -o /dev/null "$BASE/devices"; then
+if ! curl -s -o /dev/null "$BASE/login"; then
     echo "Cannot reach $BASE - start the app with: mvn jetty:run"; exit 2
+fi
+if [ -z "$HS_USER" ] || [ -z "$HS_PASSWORD" ] || ! sign_in; then
+    echo "Sign-in failed - set HS_USER and HS_PASSWORD to an existing account"; exit 2
 fi
 echo "Testing $BASE"
 echo
@@ -100,7 +118,7 @@ result "refresh after a command shows no message again (Post/Redirect/Get)" \
     "$([ -z "$(flash_message "$page")" ] && echo true)"
 result "dashboard shows the Eco mode button" \
     "$(grep -q 'value="eco"' <<<"$page" && echo true)"
-missing=$(curl -s -w '\n%{http_code}' "$BASE/no-such-page")
+missing=$(curl -s -b "$JAR" -w '\n%{http_code}' "$BASE/no-such-page")
 result "unknown page: friendly 404 page without Java details" \
     "$([ "$(tail -n1 <<<"$missing")" = 404 ] && grep -q 'Page not found' <<<"$missing" \
         && ! grep -qi 'exception' <<<"$missing" && echo true)"
