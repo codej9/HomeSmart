@@ -17,17 +17,20 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Integration tests: device commands are saved in the MySQL {@code devices} table (homesmart.sql)
- * and read back from it.
+ * and read back from it, with the time of the last update.
  *
  * <p>Runs on the test database from {@code db.test.url}, never on the app's own database. Without it every
  * test is skipped (see {@link TestDatabase}). The original rows are put back after each test.
@@ -90,8 +93,13 @@ class MySqlDeviceDAOTest {
     @Test
     void savesLightState() {
         Light light = first(Light.class);
+        Instant beforeCommand = Instant.now().truncatedTo(ChronoUnit.MICROS);
         service.execute(light.getId(), "toggle", null);
-        assertEquals(!light.isOn(), reload(light, Light.class).isOn());
+        Light reloaded = reload(light, Light.class);
+        assertEquals(!light.isOn(), reloaded.isOn());
+        assertNotNull(reloaded.getLastUpdated());
+        assertTrue(!reloaded.getLastUpdated().isBefore(beforeCommand));
+        assertEquals(reloaded.getLastUpdated(), reload(light, Light.class).getLastUpdated());
     }
 
     @Test
@@ -99,7 +107,9 @@ class MySqlDeviceDAOTest {
         Thermostat thermostat = first(Thermostat.class);
         int target = thermostat.getTemperature() == 20 ? 22 : 20;
         service.execute(thermostat.getId(), "set", String.valueOf(target));
-        assertEquals(target, reload(thermostat, Thermostat.class).getTemperature());
+        Thermostat reloaded = reload(thermostat, Thermostat.class);
+        assertEquals(target, reloaded.getTemperature());
+        assertNotNull(reloaded.getLastUpdated());
 
         service.execute(thermostat.getId(), "increase", null);
         assertEquals(target + 1, reload(thermostat, Thermostat.class).getTemperature());
@@ -109,15 +119,22 @@ class MySqlDeviceDAOTest {
     void savesDoorLockState() {
         DoorLock doorLock = first(DoorLock.class);
         service.execute(doorLock.getId(), doorLock.isLocked() ? "unlock" : "lock", null);
-        assertEquals(!doorLock.isLocked(), reload(doorLock, DoorLock.class).isLocked());
+        DoorLock reloaded = reload(doorLock, DoorLock.class);
+        assertEquals(!doorLock.isLocked(), reloaded.isLocked());
+        assertNotNull(reloaded.getLastUpdated());
     }
 
     @Test
     void rejectedCommandLeavesRowUnchanged() {
-        Thermostat thermostat = first(Thermostat.class);
+        Thermostat original = first(Thermostat.class);
+        service.execute(original.getId(), "set", "22");
+        Thermostat thermostat = reload(original, Thermostat.class);
+        assertNotNull(thermostat.getLastUpdated());
         assertThrows(IllegalArgumentException.class,
                 () -> service.execute(thermostat.getId(), "set", String.valueOf(Thermostat.MAX_TEMPERATURE + 1)));
-        assertEquals(thermostat.getTemperature(), reload(thermostat, Thermostat.class).getTemperature());
+        Thermostat reloaded = reload(thermostat, Thermostat.class);
+        assertEquals(thermostat.getTemperature(), reloaded.getTemperature());
+        assertEquals(thermostat.getLastUpdated(), reloaded.getLastUpdated());
     }
 
     @Test
@@ -148,7 +165,9 @@ class MySqlDeviceDAOTest {
         service.execute(thermostat.getId(), "decrease", null);
         assertEquals(25, reload(thermostat, Thermostat.class).getTemperature());
         service.execute(thermostat.getId(), "eco", null);
-        assertEquals(Thermostat.ECO_TEMPERATURE, reload(thermostat, Thermostat.class).getTemperature());
+        Thermostat eco = reload(thermostat, Thermostat.class);
+        assertEquals(Thermostat.ECO_TEMPERATURE, eco.getTemperature());
+        assertNotNull(eco.getLastUpdated());
 
         service.execute(doorLock.getId(), "unlock", null);
         assertFalse(reload(doorLock, DoorLock.class).isLocked());

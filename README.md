@@ -56,13 +56,17 @@ mvn jetty:run        # quick local run at http://localhost:8080/homesmart (no To
 
 For Tomcat 10.1, deploy `target/homesmart.war` (or add it as an artifact in IntelliJ's Tomcat run configuration).
 
-`DeviceServiceTest` checks the device logic on sample data. `MySqlDeviceDAOTest` checks that each command is saved in
+`DeviceServiceTest` checks the device logic on sample data. `InMemoryDeviceTimestampTest` checks the last-updated time on sample data. `MySqlDeviceDAOTest` checks that each command and its update time are saved in
 and read back from the MySQL test database; it runs only when `db.test.url` is set in `db.properties` and MySQL is
 reachable (otherwise it is skipped) and puts the original rows back afterwards. `MySqlActivityLogDAOTest` and `InMemoryActivityLogDAOTest` check that log entries are saved and read back.
 `SecurityAlertsTest` and `DoorAlertJobTest` check the door alert rule with a fixed clock. `EnergyEstimatorTest` checks the energy estimate on made-up log rows.
 `ScheduleServiceTest` checks when a schedule runs and which runs come next, with a fixed clock.
 `PasswordHasherTest`, `LoginThrottleTest` and `SetupServiceTest` check hashing, the sign-in throttle and the first-account rules. `AuthFilterTest`, `CsrfFilterTest` and
 `SecurityFiltersTest` run the filters on fake requests. `MySqlUserDAOTest` checks that accounts are saved in and read back from the `users` table of the test database.
+
+For an existing installation, apply `src/migrations/001_add_device_last_updated.sql` before deploying this version.
+It adds a nullable column and preserves the existing rows. Each device command that changes a device saves its update time in
+UTC with microsecond precision.
 
 With the app running, `bash scripts/http-smoke-test.sh` sends 35 real requests to it (every command plus every kind of
 bad request) and checks the HTTP codes and the message the dashboard shows. It changes the device states. On Windows,
@@ -129,7 +133,7 @@ plus `deviceId`. The servlet redirects back to `GET /devices` afterwards.
 instead of the server's default page, so users never see Java exception details.
 
 **Database:** `MySqlDeviceDAO` reads and updates the `devices` table from `homesmart.sql`
-(`power_on` for lights, `temperature` for thermostats, `locked` for door locks).
+(`power_on` for lights, `temperature` for thermostats, `locked` for door locks, and `last_updated` for every device).
 
 **Activity log:** `DeviceService` logs every command that changes a device, after saving it; a command that changes nothing logs nothing.
 `MySqlActivityLogDAO` stores each entry in the `activity_log` table (columns in `src/homesmart.sql`).
@@ -230,7 +234,8 @@ from `src/homesmart.sql`.
 | Unit – `ActivityLogTest` | 2 | all pass |
 | End-to-end – `scripts/http-smoke-test.sh` against the running app | 35 checks | 35 passed, 0 failed |
 
-`mvn test` runs 39 tests (23 at the start of Release 2). Without MySQL the 14 integration tests are skipped.
+That run covered 39 tests (23 at the start of Release 2). With the timestamp tests, `mvn test` reports 41 tests,
+including 14 MySQL integration tests that require an explicitly configured disposable database.
 
 **All three devices ↔ MySQL.** Each command was sent through the dashboard's HTTP form and the row checked in MySQL
 (`power_on | temperature | locked`):
@@ -260,8 +265,8 @@ from `src/homesmart.sql`.
 
 ### Notes for the team
 
-- **Database (Alfonso):** Eco is a normal `UPDATE devices SET temperature = 20`; no schema change. If `last_updated`
-  uses `ON UPDATE CURRENT_TIMESTAMP`, MySQL only bumps it when a value really changes (e.g. not for Eco at 20 °C).
+- **Database (Alfonso):** The DAO saves Eco Mode as 20 °C with a fresh `last_updated` value, including when the
+  thermostat is already at 20 °C. Apply the timestamp migration before deploying to an existing database.
 - **Activity log and testing (Matt):** Eco is logged as "Eco mode: set temperature to 20 °C".
   `scripts/http-smoke-test.sh` re-runs the 35 end-to-end checks; it reads the message from the
   `alert alert-success` / `alert alert-error` boxes, so update `flash_message()` there if that markup changes.

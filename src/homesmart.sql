@@ -29,6 +29,7 @@ CREATE TABLE `devices` (
   `power_on` tinyint(1) DEFAULT NULL,
   `temperature` decimal(4,1) DEFAULT NULL,
   `locked` tinyint(1) DEFAULT NULL,
+  `last_updated` datetime(6) DEFAULT NULL COMMENT 'UTC time of the last successful device update',
   PRIMARY KEY (`device_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -39,7 +40,7 @@ CREATE TABLE `devices` (
 
 LOCK TABLES `devices` WRITE;
 /*!40000 ALTER TABLE `devices` DISABLE KEYS */;
-INSERT INTO `devices` VALUES (1,'Living Room Light','LIGHT',1,NULL,NULL),(2,'Thermostat','THERMOSTAT',NULL,24.0,NULL),(3,'Front Door Lock','DOOR_LOCK',NULL,NULL,0);
+INSERT INTO `devices` (`device_id`, `device_name`, `device_type`, `power_on`, `temperature`, `locked`) VALUES (1,'Living Room Light','LIGHT',1,NULL,NULL),(2,'Thermostat','THERMOSTAT',NULL,24.0,NULL),(3,'Front Door Lock','DOOR_LOCK',NULL,NULL,0);
 /*!40000 ALTER TABLE `devices` ENABLE KEYS */;
 UNLOCK TABLES;
 

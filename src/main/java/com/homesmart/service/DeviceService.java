@@ -65,12 +65,10 @@ public class DeviceService {
         CommandResult result = new CommandResult(light.getId(), light.getName(),
                 provenance.describe(on ? "Turned on" : "Turned off"),
                 on ? ActivityType.TURN_ON : ActivityType.TURN_OFF, null);
-        if (light.isOn() == on) {
-            return result;
-        }
+        boolean changed = light.isOn() != on;
         light.setOn(on);
         deviceDAO.update(light);
-        record(result, provenance);
+        recordIfChanged(changed, result, provenance);
         return result;
     }
 
@@ -103,12 +101,10 @@ public class DeviceService {
     private CommandResult applyTemperature(Thermostat thermostat, int celsius, String action, Provenance provenance) {
         CommandResult result = new CommandResult(thermostat.getId(), thermostat.getName(),
                 provenance.describe(action), ActivityType.SET_TEMPERATURE, celsius);
-        if (thermostat.getTemperature() == celsius) {
-            return result;
-        }
+        boolean changed = thermostat.getTemperature() != celsius;
         thermostat.setTemperature(celsius); // rejects values outside the allowed range
         deviceDAO.update(thermostat);
-        record(result, provenance);
+        recordIfChanged(changed, result, provenance);
         return result;
     }
 
@@ -126,12 +122,10 @@ public class DeviceService {
         CommandResult result = new CommandResult(doorLock.getId(), doorLock.getName(),
                 provenance.describe(locked ? "Locked" : "Unlocked"),
                 locked ? ActivityType.LOCK : ActivityType.UNLOCK, null);
-        if (doorLock.isLocked() == locked) {
-            return result;
-        }
+        boolean changed = doorLock.isLocked() != locked;
         doorLock.setLocked(locked);
         deviceDAO.update(doorLock);
-        record(result, provenance);
+        recordIfChanged(changed, result, provenance);
         return result;
     }
 
@@ -206,6 +200,13 @@ public class DeviceService {
             activityLog.record(result, provenance);
         } catch (IllegalStateException e) {
             LOGGER.log(Level.WARNING, "Command ran but could not be logged: " + result.message(), e);
+        }
+    }
+
+    /** Every successful command updates the device's last-updated time, but only a change goes in the log. */
+    private void recordIfChanged(boolean changed, CommandResult result, Provenance provenance) {
+        if (changed) {
+            record(result, provenance);
         }
     }
 
