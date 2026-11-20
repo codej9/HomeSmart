@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class InMemoryDeviceTimestampTest {
 
-    private final DeviceService service = new DeviceService(new InMemoryDeviceDAO());
+    private final DeviceService service = new DeviceService(new InMemoryDeviceDAO(), new InMemoryActivityLogDAO());
 
     @Test
     void successfulCommandsTimestampEachDevice() {

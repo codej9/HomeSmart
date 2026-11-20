@@ -1,16 +1,24 @@
 package com.homesmart.service;
 
+import com.homesmart.dao.InMemoryActivityLogDAO;
 import com.homesmart.dao.InMemoryDeviceDAO;
+import com.homesmart.model.ActivityEntry;
+import com.homesmart.model.ActivitySource;
+import com.homesmart.model.ActivityType;
 import com.homesmart.model.DoorLock;
 import com.homesmart.model.Light;
+import com.homesmart.model.Provenance;
 import com.homesmart.model.Thermostat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,10 +33,12 @@ class DeviceServiceTest {
     private static final int DOOR_LOCK = 3;
 
     private DeviceService service;
+    private InMemoryActivityLogDAO log;
 
     @BeforeEach
     void setUp() {
-        service = new DeviceService(new InMemoryDeviceDAO());
+        log = new InMemoryActivityLogDAO();
+        service = new DeviceService(new InMemoryDeviceDAO(), log);
     }
 
     private Light light() {
@@ -277,6 +287,92 @@ class DeviceServiceTest {
         private String setError(String value) {
             return assertThrows(IllegalArgumentException.class,
                     () -> service.execute(THERMOSTAT, "set", value)).getMessage();
+        }
+    }
+
+    @Nested
+    class Logging {
+
+        @Test
+        void everyStateChangeIsRecordedWithItsType() {
+            service.turnOn(LIGHT);
+            service.setTemperature(THERMOSTAT, 23);
+            service.unlock(DOOR_LOCK);
+            service.lock(DOOR_LOCK);
+            service.turnOff(LIGHT);
+
+            List<ActivityEntry> entries = log.all();
+            assertEquals(List.of(ActivityType.TURN_OFF, ActivityType.LOCK, ActivityType.UNLOCK,
+                            ActivityType.SET_TEMPERATURE, ActivityType.TURN_ON),
+                    entries.stream().map(ActivityEntry::type).toList());
+            ActivityEntry setpoint = entries.get(3);
+            assertEquals(23, setpoint.value());
+            assertEquals(THERMOSTAT, setpoint.deviceId());
+            assertEquals("Set temperature to 23 °C", setpoint.action());
+            assertNull(entries.get(0).value());
+            assertEquals(ActivitySource.USER, entries.get(0).source());
+        }
+
+        @Test
+        void increaseRecordsOneRowWithTheNewSetpoint() {
+            service.execute(THERMOSTAT, "increase", null);
+            assertEquals(1, log.all().size());
+            assertEquals(22, log.all().get(0).value());
+        }
+
+        @Test
+        void ecoIsRecordedLikeOtherThermostatCommands() {
+            service.execute(THERMOSTAT, "set", "25");
+            service.execute(THERMOSTAT, "eco", null);
+
+            ActivityEntry eco = log.all().get(0);
+            assertEquals(2, log.all().size());
+            assertEquals(ActivityType.SET_TEMPERATURE, eco.type());
+            assertEquals(20, eco.value());
+            assertEquals("Eco mode: set temperature to 20 °C", eco.action());
+            assertEquals(ActivitySource.USER, eco.source());
+        }
+
+        @Test
+        void repeatedCommandsThatChangeNothingRecordNothing() {
+            service.execute(DOOR_LOCK, "unlock", null);
+            service.execute(DOOR_LOCK, "unlock", null);
+            service.execute(LIGHT, "on", null);
+            CommandResult again = service.execute(LIGHT, "on", null);
+            service.execute(THERMOSTAT, "set", "21");
+
+            assertEquals("Turned on", again.action());
+            assertEquals(List.of(ActivityType.TURN_ON, ActivityType.UNLOCK),
+                    log.all().stream().map(ActivityEntry::type).toList());
+        }
+
+        @Test
+        void rejectedCommandRecordsNothing() {
+            assertThrows(IllegalArgumentException.class, () -> service.setTemperature(THERMOSTAT, 99));
+            assertEquals(0, log.all().size());
+        }
+
+        @Test
+        void scheduleCommandIsLabelledWithTheScheduleName() {
+            CommandResult result = service.execute(LIGHT, "on", null, Provenance.schedule("Evening light"));
+
+            ActivityEntry entry = log.all().get(0);
+            assertEquals("Turned on (schedule: Evening light)", entry.action());
+            assertEquals(result.action(), entry.action());
+            assertEquals(ActivitySource.SCHEDULE, entry.source());
+            assertEquals("Evening light", entry.detail());
+        }
+
+        @Test
+        void failedLogInsertDoesNotFailTheCommand() {
+            DeviceService broken = new DeviceService(new InMemoryDeviceDAO(), new InMemoryActivityLogDAO() {
+                @Override
+                public long record(CommandResult result, Provenance provenance) {
+                    throw new IllegalStateException("log is down");
+                }
+            });
+            broken.turnOn(LIGHT);
+            assertTrue(((Light) broken.getDevice(LIGHT)).isOn());
         }
     }
 }

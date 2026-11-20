@@ -1,0 +1,5 @@
+<span class="account-user">Signed in as <strong><c:out value="${sessionScope.username}"/></strong></span>
+<form method="post" action="${pageContext.request.contextPath}/logout">
+    <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
+    <button class="small-button" type="submit">Log out</button>
+</form>

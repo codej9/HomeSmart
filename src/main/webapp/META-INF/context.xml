@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context>
+    <!-- Trusts X-Forwarded-* only from a proxy on this machine (tailscale serve). The default would also trust 100.64.0.0/10. -->
+    <Valve className="org.apache.catalina.valves.RemoteIpValve"
+           internalProxies="127\.0\.0\.1|0:0:0:0:0:0:0:1" />
+</Context>

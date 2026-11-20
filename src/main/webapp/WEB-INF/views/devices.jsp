@@ -4,7 +4,8 @@
   The styled dashboard (frontend) can replace this file: the servlet provides
   ${devices}, ${activity}, ${flashMessage}, ${flashError} and ${applicationScope.usingSampleData},
   and each form posts
-  deviceId + action (+ value for "set") to /devices. The thermostat's Eco button posts action "eco".
+  deviceId + action (+ value for "set") to /devices, with the _csrf field from csrf-field.jspf.
+  The thermostat's Eco button posts action "eco".
 --%>
 
 <%@ page contentType="text/html;charset=UTF-8" %>
@@ -21,25 +22,7 @@
 <body>
 <div class="dashboard-shell">
 
-    <header class="topbar glass">
-        <div class="brand">
-            <span class="brand-mark" aria-hidden="true">
-                <img src="${pageContext.request.contextPath}/icons/house-duotone.svg" alt="">
-            </span>
-            <span>Home<span class="brand-accent">Smart</span></span>
-        </div>
-
-        <div class="theme-controls">
-            <span class="topbar-label">HOME CONTROL / RELEASE 2</span>
-            <button type="button" id="theme-toggle" class="theme-toggle"
-                    aria-label="Switch to light mode" aria-pressed="false">
-                <img id="theme-icon"
-                     src="${pageContext.request.contextPath}/icons/sun-duotone.svg"
-                     alt="">
-                <span id="theme-label">Light mode</span>
-            </button>
-        </div>
-    </header>
+    <%@ include file="/WEB-INF/views/topbar.jspf" %>
 
     <main class="main-content">
         <div class="hero">
@@ -67,6 +50,7 @@
                 <c:out value="${flashError}"/>
             </div>
         </c:if>
+        <jsp:include page="/panels/alerts"/>
 
         <div class="section-heading">
             <div>
@@ -105,16 +89,19 @@
 
                     <h3><c:out value="${device.name}"/></h3>
 
+                    <c:if test="${device.type != 'THERMOSTAT'}">
                     <div class="status-line">
                         <span class="status-dot ${device.type == 'LIGHT' && device.on ? 'is-active' : ''}"></span>
                         <span>Status: <strong><c:out value="${device.status}"/></strong></span>
                     </div>
+                    </c:if>
 
                     <div class="card-controls">
                         <c:choose>
 
                             <c:when test="${device.type == 'LIGHT'}">
                                 <form method="post" action="${pageContext.request.contextPath}/devices">
+                                    <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                     <input type="hidden" name="deviceId" value="${device.id}">
                                     <button class="action-button" type="submit"
                                             name="action" value="${device.on ? 'off' : 'on'}">
@@ -123,11 +110,16 @@
                                              alt="" aria-hidden="true">
                                     </button>
                                 </form>
+                                <a class="schedule-link"
+                                   href="${pageContext.request.contextPath}/schedules?deviceId=${device.id}"
+                                   aria-label="Schedule <c:out value="${device.name}"/>">Schedule</a>
                             </c:when>
 
                             <c:when test="${device.type == 'THERMOSTAT'}">
+                                <div class="temp-caption">Current setpoint</div>
                                 <div class="temp-adjust">
                                     <form method="post" action="${pageContext.request.contextPath}/devices">
+                                        <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                         <input type="hidden" name="deviceId" value="${device.id}">
                                         <button class="square-button" type="submit"
                                                 name="action" value="decrease"
@@ -139,6 +131,7 @@
                                     </span>
 
                                     <form method="post" action="${pageContext.request.contextPath}/devices">
+                                        <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                         <input type="hidden" name="deviceId" value="${device.id}">
                                         <button class="square-button" type="submit"
                                                 name="action" value="increase"
@@ -148,6 +141,7 @@
 
                                 <form class="target-form" method="post"
                                       action="${pageContext.request.contextPath}/devices">
+                                    <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                     <input type="hidden" name="deviceId" value="${device.id}">
                                     <label for="target-${device.id}">Target temperature</label>
                                     <div class="target-row">
@@ -165,6 +159,7 @@
                                 <%-- Eco preset --%>
                                 <form class="eco-form" method="post"
                                       action="${pageContext.request.contextPath}/devices">
+                                    <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                     <input type="hidden" name="deviceId" value="${device.id}">
                                     <button class="eco-button ${device.ecoMode ? 'is-active' : ''}"
                                             type="submit" name="action" value="eco"
@@ -182,6 +177,7 @@
 
                             <c:when test="${device.type == 'DOOR_LOCK'}">
                                 <form method="post" action="${pageContext.request.contextPath}/devices">
+                                    <%@ include file="/WEB-INF/views/csrf-field.jspf" %>
                                     <input type="hidden" name="deviceId" value="${device.id}">
                                     <button class="action-button" type="submit"
                                             name="action" value="${device.locked ? 'unlock' : 'lock'}">
@@ -197,6 +193,8 @@
                 </article>
             </c:forEach>
         </div>
+        <jsp:include page="/panels/energy"/>
+        <jsp:include page="/panels/schedules"/>
 
         <div class="section-heading">
             <div>
@@ -213,44 +211,10 @@
         <div class="activity-panel glass">
             <%@ include file="activity-table.jspf" %>
         </div>
+        <jsp:include page="/panels/account"/>
     </main>
 
-    <footer class="footer">HomeSmart · TechNest Solutions</footer>
+    <%@ include file="/WEB-INF/views/footer.jspf" %>
 </div>
-
-<script>
-    const themeButton = document.getElementById("theme-toggle");
-    const themeIcon = document.getElementById("theme-icon");
-    const themeLabel = document.getElementById("theme-label");
-    const iconPath = "${pageContext.request.contextPath}/icons/";
-
-    function updateTheme() {
-        const isLight = document.body.classList.contains("light-mode");
-
-        themeLabel.textContent = isLight ? "Dark mode" : "Light mode";
-        themeIcon.src = iconPath + (isLight ? "moon-stars-duotone.svg" : "sun-duotone.svg");
-        themeButton.setAttribute("aria-label",
-            isLight ? "Switch to dark mode" : "Switch to light mode");
-        themeButton.setAttribute("aria-pressed", String(isLight));
-    }
-
-    if (localStorage.getItem("homesmart-theme") === "light") {
-        document.body.classList.add("light-mode");
-    }
-
-    updateTheme();
-
-    themeButton.addEventListener("click", function () {
-        document.body.classList.toggle("light-mode");
-
-        localStorage.setItem(
-            "homesmart-theme",
-            document.body.classList.contains("light-mode") ? "light" : "dark"
-        );
-
-        updateTheme();
-    });
-</script>
-
 </body>
 </html>

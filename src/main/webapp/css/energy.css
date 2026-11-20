@@ -1,0 +1,43 @@
+#panel-energy {
+    color: var(--hs-text);
+}
+
+.hs-energy-title {
+    margin: 0 0 18px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-size: 24px;
+}
+
+.hs-energy-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.hs-energy-table th,
+.hs-energy-table td {
+    padding: 12px 12px 12px 0;
+    text-align: left;
+    vertical-align: top;
+    border-top: 1px solid var(--hs-border);
+}
+
+.hs-energy-table thead th {
+    border-top: 0;
+    padding-top: 0;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--hs-text-muted);
+}
+
+.hs-energy-table tbody th {
+    font-weight: 600;
+}
+
+.hs-energy-note {
+    display: block;
+    margin: 8px 0 0;
+    color: var(--hs-text-muted);
+    font-size: 13px;
+}

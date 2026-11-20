@@ -16,7 +16,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -28,74 +27,49 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Integration tests: device commands are saved in the MySQL {@code devices} table (homesmart.sql)
- * and read back from it.
+ * and read back from it, with the time of the last update.
  *
- * <p>Requires explicit configuration for a disposable MySQL database with the current schema.
- * Snapshots the original values and restores them directly after each test.
+ * <p>Runs on the test database from {@code db.test.url}, never on the app's own database. Without it every
+ * test is skipped (see {@link TestDatabase}). The original rows are put back after each test.
  */
 class MySqlDeviceDAOTest {
 
+    private TestDatabase.Config database;
     private MySqlDeviceDAO dao;
     private DeviceService service;
-    private String url;
-    private String user;
-    private String password;
-    private Connection snapshotConnection;
-    private boolean snapshotReady;
+    private List<Device> originalDevices;
 
     @BeforeEach
-    void connect() throws SQLException {
-        url = System.getenv("HOMESMART_TEST_DB_URL");
-        assumeTrue(url != null && !url.isBlank(), "Disposable MySQL test database not configured");
-        user = System.getenv("HOMESMART_TEST_DB_USER");
-        password = System.getenv("HOMESMART_TEST_DB_PASSWORD");
+    void connect() {
+        database = TestDatabase.config();
         dao = newDao();
-        snapshotConnection = DriverManager.getConnection(url, user, password);
-        try (Statement statement = snapshotConnection.createStatement()) {
-            statement.executeUpdate("""
-                    CREATE TEMPORARY TABLE original_device_state AS
-                    SELECT device_id, power_on, temperature, locked, last_updated FROM devices
-                    """);
-            snapshotReady = true;
-        }
-        service = new DeviceService(dao);
+        service = new DeviceService(dao, new InMemoryActivityLogDAO());
+        originalDevices = dao.findAll();
     }
 
     @AfterEach
-    void restoreOriginalRows() throws SQLException {
-        if (snapshotConnection == null) {
-            return;
-        }
-        try (Connection connection = snapshotConnection; Statement statement = connection.createStatement()) {
-            if (snapshotReady) {
-                statement.executeUpdate("""
-                        UPDATE devices AS device
-                        JOIN original_device_state AS original USING (device_id)
-                        SET device.power_on = original.power_on,
-                            device.temperature = original.temperature,
-                            device.locked = original.locked,
-                            device.last_updated = original.last_updated
-                        """);
-            }
+    void restoreOriginalRows() {
+        if (originalDevices != null) {
+            originalDevices.forEach(dao::update);
         }
     }
 
     private MySqlDeviceDAO newDao() {
-        return new MySqlDeviceDAO(url, user, password);
+        return new MySqlDeviceDAO(database.url(), database.user(), database.password());
     }
 
-    /** Verifies that a fresh DAO can read the saved row. */
+    /** Reads the row with a brand-new DAO, exactly as the app would after a restart. */
     private <T extends Device> T reload(T device, Class<T> type) {
         return type.cast(newDao().findById(device.getId()).orElseThrow());
     }
 
     /** Writes a value straight into the temperature column, as someone editing the table by hand could. */
     private void writeRawTemperature(int deviceId, String value) throws SQLException {
-        try (PreparedStatement statement = snapshotConnection.prepareStatement(
+        try (Connection connection = DriverManager.getConnection(database.url(), database.user(), database.password());
+             PreparedStatement statement = connection.prepareStatement(
                      "UPDATE devices SET temperature = ? WHERE device_id = ?")) {
             statement.setObject(1, value == null ? null : new BigDecimal(value), Types.DECIMAL);
             statement.setInt(2, deviceId);
@@ -170,7 +144,7 @@ class MySqlDeviceDAOTest {
 
     // ---- Release 2 ----
 
-    /** All nine dashboard commands save state that a fresh DAO can read. */
+    /** All nine dashboard commands reach MySQL and are still there for a freshly started app. */
     @Test
     void everyCommandIsSavedAndSurvivesARestart() {
         Light light = first(Light.class);
@@ -217,12 +191,11 @@ class MySqlDeviceDAOTest {
     @ParameterizedTest(name = "saved {0} °C is shown as {1} °C")
     @CsvSource(value = {"40, 32", "32.5, 32", "9.4, 10", "-3, 10", "21.5, 22", "NULL, 20"}, nullValues = "NULL")
     void badSavedTemperatureStillLoads(String saved, int shown) throws SQLException {
-        int originalDeviceCount = dao.findAll().size();
         Thermostat thermostat = first(Thermostat.class);
         writeRawTemperature(thermostat.getId(), saved);
 
         List<Device> devices = assertDoesNotThrow(() -> newDao().findAll());
-        assertEquals(originalDeviceCount, devices.size());
+        assertEquals(originalDevices.size(), devices.size());
         assertEquals(shown, reload(thermostat, Thermostat.class).getTemperature());
 
         // The next command saves a valid value again
